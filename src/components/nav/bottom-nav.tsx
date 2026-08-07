@@ -1,0 +1,40 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { NAV_ITEMS } from "./nav-items";
+import { isNavItemActive } from "./is-active";
+import { clsx } from "clsx";
+
+export function BottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-40 flex justify-center pb-[calc(env(safe-area-inset-bottom)+0.75rem)] md:hidden"
+      aria-label="Primary"
+    >
+      <div className="flex items-center gap-0.5 rounded-full border border-neutral-200/80 bg-white/90 px-1.5 py-1.5 shadow-lg shadow-black/5 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-900/90">
+        {NAV_ITEMS.map((item) => {
+          const active = isNavItemActive(pathname, item.href);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={clsx(
+                "flex flex-col items-center gap-0.5 rounded-full px-3.5 py-2 text-[10px] font-medium transition-colors",
+                active
+                  ? "bg-amber-500 text-white"
+                  : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100",
+              )}
+            >
+              <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 2} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
