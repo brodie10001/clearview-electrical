@@ -3,7 +3,7 @@
 // network so the app never serves stale business data from cache.
 // Bump this on any deploy where you want to force-evict old cached assets
 // for users with an already-installed PWA/service worker.
-const CACHE_NAME = "clearview-shell-v3";
+const CACHE_NAME = "clearview-shell-v4";
 const APP_SHELL = [
   "/",
   "/offline.html",

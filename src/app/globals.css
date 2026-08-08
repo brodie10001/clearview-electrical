@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Light mode only for now -- no toggle exists yet. Redefining the `dark`
+   variant to a class selector that's never applied makes every `dark:`
+   utility in the codebase inert without touching each of the ~60 files
+   that use one. Re-enabling dark mode later (e.g. a toggle that adds
+   `.dark` to <html>) is a one-line change: switch this back to
+   `@media (prefers-color-scheme: dark)` or keep the class selector and
+   actually apply the class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -10,13 +19,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
