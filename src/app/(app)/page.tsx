@@ -82,7 +82,7 @@ export default async function DashboardPage() {
 
   const today = todayDateString();
 
-  const [todayVisitsRes, openJobsRes, recentJobsRes, recentDocsRes, notesRes] = await Promise.all([
+  const [todayVisitsRes, openJobsRes, recentJobsRes, recentDocsRes, recentQuotesRes, notesRes] = await Promise.all([
     supabase
       .from("job_visits")
       .select("id, start_time, jobs(id, job_status, properties(address), contacts(name))")
@@ -115,6 +115,21 @@ export default async function DashboardPage() {
           created_at: string;
           property_id: string;
           properties: { address: string } | null;
+        }[]
+      >(),
+    supabase
+      .from("quotes")
+      .select("id, quote_number, total, updated_at, jobs(properties(address, customers(name)))")
+      .eq("status", "Accepted")
+      .order("updated_at", { ascending: false })
+      .limit(5)
+      .returns<
+        {
+          id: string;
+          quote_number: string;
+          total: number;
+          updated_at: string;
+          jobs: { properties: { address: string; customers: { name: string } | null } | null } | null;
         }[]
       >(),
     supabase
@@ -156,7 +171,18 @@ export default async function DashboardPage() {
     href: `/properties/${doc.property_id}`,
   }));
 
-  const recentActivity = [...jobActivity, ...docActivity]
+  const quoteActivity: ActivityItem[] = (recentQuotesRes.data ?? []).map((quote) => ({
+    id: quote.id,
+    type: "quote",
+    timestamp: quote.updated_at,
+    title: `${quote.quote_number} accepted`,
+    subtitle: [quote.jobs?.properties?.customers?.name, `$${quote.total.toFixed(2)}`]
+      .filter(Boolean)
+      .join(" · "),
+    href: `/quotes/${quote.id}`,
+  }));
+
+  const recentActivity = [...jobActivity, ...docActivity, ...quoteActivity]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 6);
 

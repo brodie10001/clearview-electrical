@@ -132,6 +132,11 @@ export function BrandingForm({
 
         <Textarea label="Quote header" name="quote_header" defaultValue={settings.quote_header} />
         <Textarea
+          label="Quote terms & conditions"
+          name="quote_terms"
+          defaultValue={settings.quote_terms}
+        />
+        <Textarea
           label="Invoice footer"
           name="invoice_footer"
           defaultValue={settings.invoice_footer}

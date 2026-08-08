@@ -84,6 +84,8 @@ export type QuoteLineType = "labour" | "material";
 
 export type VisitStatus = "Scheduled" | "In Progress" | "Completed" | "Cancelled" | "Rescheduled";
 
+export type QuoteActivityType = "Sent" | "Viewed" | "Accepted" | "Declined";
+
 export interface Database {
   public: {
     Tables: {
@@ -388,6 +390,7 @@ export interface Database {
           default_material_markup_percent: number;
           gst_registered: boolean;
           default_payment_terms: PaymentTerms;
+          quote_terms: string | null;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["business_settings"]["Row"]>;
@@ -422,6 +425,7 @@ export interface Database {
           gst_amount: number;
           total: number;
           gst_applied: boolean;
+          version: number;
           created_at: string;
           updated_at: string;
         };
@@ -644,6 +648,75 @@ export interface Database {
             columns: ["invoice_id"];
             isOneToOne: false;
             referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quote_versions: {
+        Row: {
+          id: string;
+          quote_id: string;
+          version_number: number;
+          snapshot: unknown;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["quote_versions"]["Row"]> & {
+          quote_id: string;
+          version_number: number;
+          snapshot: unknown;
+        };
+        Update: Partial<Database["public"]["Tables"]["quote_versions"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "quote_versions_quote_id_fkey";
+            columns: ["quote_id"];
+            isOneToOne: false;
+            referencedRelation: "quotes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quote_public_tokens: {
+        Row: {
+          id: string;
+          quote_id: string;
+          token: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["quote_public_tokens"]["Row"]> & {
+          quote_id: string;
+          token: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["quote_public_tokens"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "quote_public_tokens_quote_id_fkey";
+            columns: ["quote_id"];
+            isOneToOne: true;
+            referencedRelation: "quotes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quote_activity: {
+        Row: {
+          id: string;
+          quote_id: string;
+          event_type: QuoteActivityType;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["quote_activity"]["Row"]> & {
+          quote_id: string;
+          event_type: QuoteActivityType;
+        };
+        Update: Partial<Database["public"]["Tables"]["quote_activity"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "quote_activity_quote_id_fkey";
+            columns: ["quote_id"];
+            isOneToOne: false;
+            referencedRelation: "quotes";
             referencedColumns: ["id"];
           },
         ];

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/format";
 import { QuoteBuilder } from "./quote-builder";
 import type { QuoteStatus, QuoteLineType } from "@/types/database";
+import type { QuoteActivityItem } from "./quote-activity-timeline";
 
 export interface QuoteDetailData {
   id: string;
@@ -12,6 +13,8 @@ export interface QuoteDetailData {
   quote_number: string;
   status: QuoteStatus;
   expiry_date: string | null;
+  notes: string | null;
+  version: number;
   subtotal: number;
   gst_amount: number;
   total: number;
@@ -48,11 +51,11 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
   const { id } = await params;
   const supabase = await createClient();
 
-  const [quoteRes, lineItemsRes, rateTypesRes, settingsRes] = await Promise.all([
+  const [quoteRes, lineItemsRes, rateTypesRes, settingsRes, activityRes] = await Promise.all([
     supabase
       .from("quotes")
       .select(
-        "id, job_id, quote_number, status, expiry_date, subtotal, gst_amount, total, gst_applied, created_at, jobs(id, properties(id, address, customers(name)))",
+        "id, job_id, quote_number, status, expiry_date, notes, version, subtotal, gst_amount, total, gst_applied, created_at, jobs(id, properties(id, address, customers(name)))",
       )
       .eq("id", id)
       .single()
@@ -71,7 +74,17 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
       .eq("is_active", true)
       .order("sort_order")
       .returns<ActiveLabourRateType[]>(),
-    supabase.from("business_settings").select("default_material_markup_percent").eq("id", true).single(),
+    supabase
+      .from("business_settings")
+      .select("default_material_markup_percent, trading_name")
+      .eq("id", true)
+      .single(),
+    supabase
+      .from("quote_activity")
+      .select("id, event_type, note, created_at")
+      .eq("quote_id", id)
+      .order("created_at", { ascending: false })
+      .returns<QuoteActivityItem[]>(),
   ]);
 
   if (quoteRes.error || !quoteRes.data) notFound();
@@ -101,6 +114,9 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
         lineItems={lineItemsRes.data ?? []}
         activeRateTypes={rateTypesRes.data ?? []}
         defaultMarkupPercent={settingsRes.data?.default_material_markup_percent ?? 30}
+        tradingName={settingsRes.data?.trading_name || "your electrician"}
+        customerName={property?.customers?.name ?? "there"}
+        activity={activityRes.data ?? []}
       />
     </div>
   );

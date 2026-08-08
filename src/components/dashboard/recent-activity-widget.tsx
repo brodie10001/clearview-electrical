@@ -1,16 +1,18 @@
 import Link from "next/link";
-import { Briefcase, ImageIcon } from "lucide-react";
+import { Briefcase, ImageIcon, FileCheck2 } from "lucide-react";
 import { WidgetCard } from "./widget-card";
 import { formatRelative } from "@/lib/format";
 
 export interface ActivityItem {
   id: string;
-  type: "job" | "document";
+  type: "job" | "document" | "quote";
   timestamp: string;
   title: string;
   subtitle: string;
   href: string;
 }
+
+const ICONS = { job: Briefcase, document: ImageIcon, quote: FileCheck2 };
 
 export function RecentActivityWidget({ items }: { items: ActivityItem[] }) {
   return (
@@ -20,7 +22,7 @@ export function RecentActivityWidget({ items }: { items: ActivityItem[] }) {
       ) : (
         <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
           {items.map((item) => {
-            const Icon = item.type === "job" ? Briefcase : ImageIcon;
+            const Icon = ICONS[item.type];
             return (
               <li key={`${item.type}-${item.id}`}>
                 <Link

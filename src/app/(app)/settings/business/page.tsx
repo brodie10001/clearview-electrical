@@ -17,6 +17,7 @@ export interface BusinessSettings {
   company_font: CompanyFont;
   email_signature: string | null;
   quote_header: string | null;
+  quote_terms: string | null;
   invoice_footer: string | null;
   default_material_markup_percent: number;
   gst_registered: boolean;

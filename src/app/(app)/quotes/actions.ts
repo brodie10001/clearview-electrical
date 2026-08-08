@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { QuoteStatus } from "@/types/database";
+import { generateShareToken } from "@/lib/tokens";
 
 const GST_RATE = 0.1;
 
@@ -70,25 +70,124 @@ export async function createQuote(formData: FormData) {
   redirect(`/quotes/${data.id}`);
 }
 
-export async function updateQuoteStatus(quoteId: string, jobId: string, status: QuoteStatus) {
+// Shared by any authenticated screen that needs a share link (mainly
+// Share Quote, but also re-used if a quote is re-shared after a new
+// version). Reuses an existing token for this quote rather than minting a
+// new one every time, so a link once given out keeps working.
+export async function getOrCreateShareToken(quoteId: string): Promise<string> {
   const supabase = await createClient();
 
-  const { data: previous } = await supabase
+  const { data: existing } = await supabase
+    .from("quote_public_tokens")
+    .select("token")
+    .eq("quote_id", quoteId)
+    .maybeSingle();
+
+  if (existing?.token) return existing.token;
+
+  const token = generateShareToken();
+  const { error } = await supabase
+    .from("quote_public_tokens")
+    .insert({ quote_id: quoteId, token });
+
+  if (error) throw new Error(error.message);
+  return token;
+}
+
+// The moment a quote is first shared, its content locks (see the Draft
+// check in quote-builder.tsx that gates all edit affordances) and it
+// transitions to Sent -- there's no separate "Send" action anymore.
+export async function shareQuote(quoteId: string, jobId: string): Promise<{ token: string }> {
+  const supabase = await createClient();
+  const token = await getOrCreateShareToken(quoteId);
+
+  const { data: quote } = await supabase
     .from("quotes")
     .select("status")
     .eq("id", quoteId)
     .single();
 
-  await supabase.from("quotes").update({ status }).eq("id", quoteId);
-  await recalculateQuoteTotals(supabase, quoteId);
-
-  // Auto-advance the job on the transition into Accepted (not on every save
-  // of an already-accepted quote) — a one-off nudge, not an enforced link.
-  // The user can freely change the job status back or forward afterward.
-  if (status === "Accepted" && previous?.status !== "Accepted") {
-    await supabase.from("jobs").update({ job_status: "Ready to Schedule" }).eq("id", jobId);
+  if (quote?.status === "Draft") {
+    await supabase.from("quotes").update({ status: "Sent" }).eq("id", quoteId);
+    await recalculateQuoteTotals(supabase, quoteId);
+    await supabase.from("quote_activity").insert({ quote_id: quoteId, event_type: "Sent" });
   }
 
+  revalidateQuote(quoteId, jobId);
+  return { token };
+}
+
+// Unlocks a locked (non-Draft) quote for editing by snapshotting its
+// current state -- including line items -- into quote_versions first, then
+// reopening it as Draft under an incremented version number. The quote
+// keeps the same id, job link, and public token; the link just starts
+// showing the new draft once it's shared again.
+export async function createNewQuoteVersion(quoteId: string, jobId: string) {
+  const supabase = await createClient();
+
+  const [quoteRes, linesRes] = await Promise.all([
+    supabase.from("quotes").select("*").eq("id", quoteId).single(),
+    supabase.from("quote_line_items").select("*").eq("quote_id", quoteId),
+  ]);
+
+  if (!quoteRes.data) throw new Error("Quote not found");
+
+  const snapshot = {
+    status: quoteRes.data.status,
+    expiry_date: quoteRes.data.expiry_date,
+    notes: quoteRes.data.notes,
+    subtotal: quoteRes.data.subtotal,
+    gst_amount: quoteRes.data.gst_amount,
+    total: quoteRes.data.total,
+    gst_applied: quoteRes.data.gst_applied,
+    line_items: linesRes.data ?? [],
+  };
+
+  const { error } = await supabase.from("quote_versions").insert({
+    quote_id: quoteId,
+    version_number: quoteRes.data.version,
+    snapshot,
+  });
+  if (error) throw new Error(error.message);
+
+  await supabase
+    .from("quotes")
+    .update({ status: "Draft", version: quoteRes.data.version + 1 })
+    .eq("id", quoteId);
+
+  revalidateQuote(quoteId, jobId);
+}
+
+export async function markQuoteAccepted(quoteId: string, jobId: string) {
+  const supabase = await createClient();
+
+  await supabase.from("quotes").update({ status: "Accepted" }).eq("id", quoteId);
+  await recalculateQuoteTotals(supabase, quoteId);
+  await supabase.from("quote_activity").insert({ quote_id: quoteId, event_type: "Accepted" });
+
+  // A one-off nudge, not an enforced link -- the user can freely change the
+  // job status afterward.
+  await supabase.from("jobs").update({ job_status: "Ready to Schedule" }).eq("id", jobId);
+
+  revalidateQuote(quoteId, jobId);
+  revalidatePath("/");
+}
+
+export async function markQuoteDeclined(quoteId: string, jobId: string, formData: FormData) {
+  const note = (formData.get("note") as string) || null;
+
+  const supabase = await createClient();
+  await supabase.from("quotes").update({ status: "Rejected" }).eq("id", quoteId);
+  await recalculateQuoteTotals(supabase, quoteId);
+  await supabase.from("quote_activity").insert({ quote_id: quoteId, event_type: "Declined", note });
+
+  revalidateQuote(quoteId, jobId);
+}
+
+export async function updateQuoteNotes(quoteId: string, jobId: string, formData: FormData) {
+  const notes = (formData.get("notes") as string) || null;
+  const supabase = await createClient();
+  await supabase.from("quotes").update({ notes }).eq("id", quoteId);
   revalidateQuote(quoteId, jobId);
 }
 

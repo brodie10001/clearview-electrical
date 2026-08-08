@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   QuoteDocument,
   DEFAULT_PDF_SETTINGS,
@@ -11,9 +11,21 @@ import {
 
 export const runtime = "nodejs";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const supabase = await createClient();
+export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const supabase = createServiceClient();
+
+  // Same rule as the public page: resolve the token to exactly one quote_id
+  // first, then scope every query to it.
+  const { data: tokenRow } = await supabase
+    .from("quote_public_tokens")
+    .select("quote_id")
+    .eq("token", token)
+    .maybeSingle();
+
+  if (!tokenRow) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const [quoteRes, linesRes, settingsRes] = await Promise.all([
     supabase
@@ -21,7 +33,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .select(
         "id, quote_number, status, expiry_date, notes, subtotal, gst_amount, total, gst_applied, created_at, jobs(properties(address, customers(name, email, phone)))",
       )
-      .eq("id", id)
+      .eq("id", tokenRow.quote_id)
       .single()
       .returns<QuotePdfData>(),
     supabase
@@ -29,7 +41,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .select(
         "line_type, description, rate_per_hour, hours, cost, markup_percent, quantity, sell_price, line_total, labour_rate_types(name)",
       )
-      .eq("quote_id", id)
+      .eq("quote_id", tokenRow.quote_id)
       .order("created_at", { ascending: true })
       .returns<QuotePdfLine[]>(),
     supabase
@@ -43,7 +55,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   ]);
 
   if (quoteRes.error || !quoteRes.data) {
-    return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const pdfSettings: BusinessSettingsPdf = settingsRes.data ?? DEFAULT_PDF_SETTINGS;

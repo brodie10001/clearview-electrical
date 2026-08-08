@@ -18,6 +18,7 @@ export async function updateBusinessSettings(formData: FormData) {
     accent_color: (formData.get("accent_color") as string) || "#3b82f6",
     email_signature: (formData.get("email_signature") as string) || null,
     quote_header: (formData.get("quote_header") as string) || null,
+    quote_terms: (formData.get("quote_terms") as string) || null,
     invoice_footer: (formData.get("invoice_footer") as string) || null,
     company_font: (formData.get("company_font") as CompanyFont) || "Helvetica",
     default_material_markup_percent: Number(
