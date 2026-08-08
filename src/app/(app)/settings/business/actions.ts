@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Database, CompanyFont, PaymentTerms } from "@/types/database";
+import type { Database, CompanyFont, PaymentTerms, ComplianceFieldDef } from "@/types/database";
 
 type BusinessSettingsUpdate = Database["public"]["Tables"]["business_settings"]["Update"];
 
@@ -245,6 +245,98 @@ export async function updateTemplateStage(stageId: string, formData: FormData) {
 export async function deleteTemplateStage(stageId: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("payment_schedule_template_stages").delete().eq("id", stageId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function createTestType(formData: FormData) {
+  const name = formData.get("name") as string;
+  const defaultUnit = (formData.get("default_unit") as string) || null;
+  const isCustom = formData.get("is_custom") === "on";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("test_types")
+    .insert({ name, default_unit: defaultUnit, is_custom: isCustom });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function updateTestType(testTypeId: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  const defaultUnit = (formData.get("default_unit") as string) || null;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("test_types")
+    .update({ name, default_unit: defaultUnit })
+    .eq("id", testTypeId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function toggleTestTypeActive(testTypeId: string, active: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("test_types").update({ active }).eq("id", testTypeId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+function parseFieldSchema(formData: FormData): ComplianceFieldDef[] {
+  const raw = formData.get("field_schema") as string;
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as ComplianceFieldDef[];
+  } catch {
+    throw new Error("Invalid field schema");
+  }
+}
+
+export async function createComplianceDocumentTemplate(formData: FormData) {
+  const name = formData.get("name") as string;
+  const category = formData.get("category") as string;
+  const fieldSchema = parseFieldSchema(formData);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("compliance_document_templates")
+    .insert({ name, category, field_schema: fieldSchema });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function updateComplianceDocumentTemplate(templateId: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  const category = formData.get("category") as string;
+  const fieldSchema = parseFieldSchema(formData);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("compliance_document_templates")
+    .update({ name, category, field_schema: fieldSchema })
+    .eq("id", templateId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function toggleComplianceDocumentTemplateActive(templateId: string, active: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("compliance_document_templates")
+    .update({ active })
+    .eq("id", templateId);
 
   if (error) throw new Error(error.message);
 

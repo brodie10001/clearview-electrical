@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Palette, Clock, Package, CalendarRange } from "lucide-react";
+import { Palette, Clock, Package, CalendarRange, ShieldCheck } from "lucide-react";
 import { BrandingForm } from "./branding-form";
 import { LabourRatesSection } from "./labour-rates-section";
 import { MaterialsCatalogueSection } from "./materials-catalogue-section";
 import { PaymentScheduleTemplatesSection } from "./payment-schedule-templates-section";
+import { TestTypesSection } from "./test-types-section";
+import { ComplianceDocumentTemplatesSection } from "./compliance-document-templates-section";
 import type {
   BusinessSettings,
   LabourRateType,
@@ -14,6 +16,8 @@ import type {
   CatalogueProductData,
   PaymentScheduleTemplateData,
   PaymentScheduleStageData,
+  TestTypeSettingsData,
+  ComplianceDocumentTemplateSettingsData,
 } from "./page";
 
 const TABS = [
@@ -21,6 +25,7 @@ const TABS = [
   { key: "rates", label: "Labour Rates", icon: Clock },
   { key: "materials", label: "Materials Catalogue", icon: Package },
   { key: "schedules", label: "Payment Schedules", icon: CalendarRange },
+  { key: "compliance", label: "Testing & Compliance", icon: ShieldCheck },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -32,6 +37,8 @@ export function BusinessSettingsTabs({
   products,
   paymentScheduleTemplates,
   paymentScheduleStages,
+  testTypes,
+  complianceDocumentTemplates,
   canEdit,
 }: {
   settings: BusinessSettings;
@@ -40,6 +47,8 @@ export function BusinessSettingsTabs({
   products: CatalogueProductData[];
   paymentScheduleTemplates: PaymentScheduleTemplateData[];
   paymentScheduleStages: PaymentScheduleStageData[];
+  testTypes: TestTypeSettingsData[];
+  complianceDocumentTemplates: ComplianceDocumentTemplateSettingsData[];
   canEdit: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("branding");
@@ -92,6 +101,20 @@ export function BusinessSettingsTabs({
             stages={paymentScheduleStages}
             canEdit={canEdit}
           />
+        ) : null}
+        {tab === "compliance" ? (
+          <div className="flex flex-col gap-6">
+            <div>
+              <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                Document templates
+              </h3>
+              <ComplianceDocumentTemplatesSection templates={complianceDocumentTemplates} canEdit={canEdit} />
+            </div>
+            <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">
+              <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">Test types</h3>
+              <TestTypesSection testTypes={testTypes} canEdit={canEdit} />
+            </div>
+          </div>
         ) : null}
       </div>
     </div>

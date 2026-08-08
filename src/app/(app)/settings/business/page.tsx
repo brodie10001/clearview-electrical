@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { BusinessSettingsTabs } from "./business-settings-tabs";
-import type { CompanyFont, PaymentTerms } from "@/types/database";
+import type { CompanyFont, PaymentTerms, ComplianceFieldDef } from "@/types/database";
 
 export interface BusinessSettings {
   trading_name: string | null;
@@ -65,6 +65,22 @@ export interface PaymentScheduleStageData {
   sort_order: number;
 }
 
+export interface TestTypeSettingsData {
+  id: string;
+  name: string;
+  default_unit: string | null;
+  active: boolean;
+  is_custom: boolean;
+}
+
+export interface ComplianceDocumentTemplateSettingsData {
+  id: string;
+  name: string;
+  category: string;
+  field_schema: ComplianceFieldDef[];
+  active: boolean;
+}
+
 export default async function BusinessSettingsPage() {
   const supabase = await createClient();
   const {
@@ -79,6 +95,8 @@ export default async function BusinessSettingsPage() {
     productsRes,
     templatesRes,
     stagesRes,
+    testTypesRes,
+    complianceTemplatesRes,
   ] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user!.id).single(),
     supabase.from("business_settings").select("*").eq("id", true).single(),
@@ -111,6 +129,16 @@ export default async function BusinessSettingsPage() {
       .select("id, template_id, label, percentage, sort_order")
       .order("sort_order")
       .returns<PaymentScheduleStageData[]>(),
+    supabase
+      .from("test_types")
+      .select("id, name, default_unit, active, is_custom")
+      .order("name")
+      .returns<TestTypeSettingsData[]>(),
+    supabase
+      .from("compliance_document_templates")
+      .select("id, name, category, field_schema, active")
+      .order("name")
+      .returns<ComplianceDocumentTemplateSettingsData[]>(),
   ]);
 
   const canEdit = profileRes.data?.role === "owner" || profileRes.data?.role === "admin";
@@ -135,6 +163,8 @@ export default async function BusinessSettingsPage() {
           products={productsRes.data ?? []}
           paymentScheduleTemplates={templatesRes.data ?? []}
           paymentScheduleStages={stagesRes.data ?? []}
+          testTypes={testTypesRes.data ?? []}
+          complianceDocumentTemplates={complianceTemplatesRes.data ?? []}
           canEdit={canEdit}
         />
       ) : (

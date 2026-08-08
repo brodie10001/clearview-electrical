@@ -1,23 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, Phone, Mail, FileText, Plus, CalendarClock, Wallet } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { JobControls } from "./job-controls";
-import { VisitsSection, type VisitData, type WorkerOption } from "./visits-section";
-import { VariationsSection, type VariationData } from "./variations-section";
-import {
-  InvoicesSection,
-  type InvoiceListItem,
-  type TemplateOption,
-  type TemplateStageOption,
-} from "./invoices-section";
-import { BillingSummary } from "./billing-summary";
-import { DocumentsList } from "@/components/documents/documents-list";
+import { JobTabs } from "./job-tabs";
+import type { VisitData, WorkerOption } from "./visits-section";
+import type { VariationData } from "./variations-section";
+import type { InvoiceListItem, TemplateOption, TemplateStageOption } from "./invoices-section";
+import type {
+  JobComplianceStatusData,
+  TestRecordData,
+  TestTypeOption,
+  ComplianceDocumentListItem,
+  ComplianceTemplateOption,
+} from "./compliance-section";
 import { formatDate, formatTime, todayDateString } from "@/lib/format";
-import { QuoteStatusBadge } from "@/components/ui/status-badge";
-import { createQuote } from "@/app/(app)/quotes/actions";
 import { getAcceptedQuote } from "@/lib/quotes";
 import { computeJobBilling } from "@/lib/billing";
+import { computeJobCompliance } from "@/lib/compliance";
 import type {
   JobStatus,
   InvoiceStatus,
@@ -108,25 +107,65 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
     .order("created_at", { ascending: false })
     .returns<VariationData[]>();
 
-  const [invoicesRes, templatesRes, stagesRes, businessSettingsRes, acceptedQuote] =
-    await Promise.all([
-      supabase
-        .from("invoices")
-        .select("id, invoice_number, stage_label, amount, status, issue_date, due_date, payments(amount)")
-        .eq("job_id", id)
-        .order("issue_date", { ascending: false })
-        .returns<
-          (InvoiceListItem & { status: InvoiceRecordStatus; payments: { amount: number }[] })[]
-        >(),
-      supabase.from("payment_schedule_templates").select("id, name").order("name").returns<TemplateOption[]>(),
-      supabase
-        .from("payment_schedule_template_stages")
-        .select("id, template_id, label, percentage")
-        .order("sort_order")
-        .returns<TemplateStageOption[]>(),
-      supabase.from("business_settings").select("default_payment_terms").eq("id", true).single(),
-      getAcceptedQuote(supabase, id),
-    ]);
+  const [
+    invoicesRes,
+    templatesRes,
+    stagesRes,
+    businessSettingsRes,
+    acceptedQuote,
+    complianceStatusRes,
+    testRecordsRes,
+    testTypesRes,
+    complianceDocumentsRes,
+    complianceTemplatesRes,
+  ] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("id, invoice_number, stage_label, amount, status, issue_date, due_date, payments(amount)")
+      .eq("job_id", id)
+      .order("issue_date", { ascending: false })
+      .returns<
+        (InvoiceListItem & { status: InvoiceRecordStatus; payments: { amount: number }[] })[]
+      >(),
+    supabase.from("payment_schedule_templates").select("id, name").order("name").returns<TemplateOption[]>(),
+    supabase
+      .from("payment_schedule_template_stages")
+      .select("id, template_id, label, percentage")
+      .order("sort_order")
+      .returns<TemplateStageOption[]>(),
+    supabase.from("business_settings").select("default_payment_terms").eq("id", true).single(),
+    getAcceptedQuote(supabase, id),
+    supabase
+      .from("job_compliance_status")
+      .select("requires_testing, requires_certificate, certificate_status, requires_notice, notice_status")
+      .eq("job_id", id)
+      .maybeSingle()
+      .returns<JobComplianceStatusData>(),
+    supabase
+      .from("test_records")
+      .select(
+        "id, circuit_or_equipment, test_type_id, custom_test_type_label, measured_value, unit, result, instrument_used, tested_at, notes, test_types(name), profiles(full_name, email)",
+      )
+      .eq("job_id", id)
+      .order("tested_at", { ascending: false })
+      .returns<TestRecordData[]>(),
+    supabase
+      .from("test_types")
+      .select("id, name, default_unit, is_custom")
+      .eq("active", true)
+      .returns<TestTypeOption[]>(),
+    supabase
+      .from("compliance_documents")
+      .select("id, status, issued_date, created_at, compliance_document_templates(name, category)")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false })
+      .returns<ComplianceDocumentListItem[]>(),
+    supabase
+      .from("compliance_document_templates")
+      .select("id, name, category")
+      .eq("active", true)
+      .returns<ComplianceTemplateOption[]>(),
+  ]);
 
   const invoices = invoicesRes.data ?? [];
   const approvedVariationsSum = (variations ?? [])
@@ -141,6 +180,17 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
       status: inv.status,
       paidAmount: inv.payments.reduce((sum, p) => sum + p.amount, 0),
     })),
+  });
+
+  const jobComplianceStatus = complianceStatusRes.data;
+  const testRecords = testRecordsRes.data ?? [];
+  const { testingCompleted, complianceComplete } = computeJobCompliance({
+    requiresTesting: jobComplianceStatus?.requires_testing ?? false,
+    hasTestRecords: testRecords.length > 0,
+    requiresCertificate: jobComplianceStatus?.requires_certificate ?? false,
+    certificateStatus: jobComplianceStatus?.certificate_status ?? "Not Required",
+    requiresNotice: jobComplianceStatus?.requires_notice ?? false,
+    noticeStatus: jobComplianceStatus?.notice_status ?? "Not Required",
   });
 
   const defaultPaymentTerms: PaymentTerms =
@@ -164,120 +214,27 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
         </p>
       </div>
 
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <JobControls
-          jobId={job.id}
-          jobStatus={job.job_status}
-          invoiceStatus={job.invoice_status}
-        />
-      </section>
-
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-          <Wallet className="h-4 w-4" /> Billing summary
-        </h2>
-        <BillingSummary billing={billing} />
-      </section>
-
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-          <CalendarClock className="h-4 w-4" /> Visits
-        </h2>
-        <VisitsSection jobId={job.id} visits={visits ?? []} workers={workers ?? []} />
-      </section>
-
-      {job.contacts ? (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-          <h2 className="mb-2 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-            Primary contact
-          </h2>
-          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-            {job.contacts.name}
-          </p>
-          <div className="mt-1 flex flex-col gap-1 text-sm text-neutral-500">
-            {job.contacts.phone ? (
-              <a href={`tel:${job.contacts.phone}`} className="flex items-center gap-1.5 hover:text-amber-600">
-                <Phone className="h-3.5 w-3.5" /> {job.contacts.phone}
-              </a>
-            ) : null}
-            {job.contacts.email ? (
-              <a href={`mailto:${job.contacts.email}`} className="flex items-center gap-1.5 hover:text-amber-600">
-                <Mail className="h-3.5 w-3.5" /> {job.contacts.email}
-              </a>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Quotes</h2>
-          <form action={createQuote}>
-            <input type="hidden" name="job_id" value={job.id} />
-            <button
-              type="submit"
-              className="flex items-center gap-1 text-xs font-semibold text-amber-600 hover:underline"
-            >
-              <Plus className="h-3.5 w-3.5" /> New Quote
-            </button>
-          </form>
-        </div>
-        {!quotes || quotes.length === 0 ? (
-          <p className="text-sm text-neutral-500">No quotes for this job yet.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-            {quotes.map((quote) => (
-              <li key={quote.id}>
-                <Link
-                  href={`/quotes/${quote.id}`}
-                  className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                >
-                  <FileText className="h-4 w-4 shrink-0 text-neutral-400" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                      ${quote.total.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {quote.quote_number} · {formatDate(quote.created_at)}
-                    </p>
-                  </div>
-                  <QuoteStatusBadge status={quote.status} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-          Variations
-        </h2>
-        <VariationsSection jobId={job.id} variations={variations ?? []} />
-      </section>
-
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-          Invoices
-        </h2>
-        <InvoicesSection
-          jobId={job.id}
-          invoices={invoices}
-          templates={templatesRes.data ?? []}
-          templateStages={stagesRes.data ?? []}
-          revisedContractValue={billing.revisedContractValue}
-          remainingToInvoice={billing.remainingToInvoice}
-          defaultPaymentTerms={defaultPaymentTerms}
-          today={todayDateString()}
-        />
-      </section>
-
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-          Documents
-        </h2>
-        <DocumentsList documents={documents} revalidatePaths={[`/jobs/${job.id}`]} />
-      </section>
+      <JobTabs
+        job={job}
+        visits={visits ?? []}
+        workers={workers ?? []}
+        documents={documents}
+        quotes={quotes ?? []}
+        variations={variations ?? []}
+        invoices={invoices}
+        templates={templatesRes.data ?? []}
+        templateStages={stagesRes.data ?? []}
+        billing={billing}
+        defaultPaymentTerms={defaultPaymentTerms}
+        today={todayDateString()}
+        complianceComplete={complianceComplete}
+        testingCompleted={testingCompleted}
+        jobComplianceStatus={jobComplianceStatus ?? null}
+        testRecords={testRecords}
+        testTypes={testTypesRes.data ?? []}
+        complianceDocuments={complianceDocumentsRes.data ?? []}
+        complianceTemplates={complianceTemplatesRes.data ?? []}
+      />
     </div>
   );
 }

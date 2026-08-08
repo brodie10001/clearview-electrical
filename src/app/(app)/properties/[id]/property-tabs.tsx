@@ -12,9 +12,21 @@ import {
   Users,
   FileImage,
   History,
+  Briefcase,
+  FileText,
+  Receipt,
+  ImageIcon,
+  Activity,
+  FileCheck2,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { JobStatusBadge } from "@/components/ui/status-badge";
+import {
+  JobStatusBadge,
+  QuoteStatusBadge,
+  InvoiceRecordStatusBadge,
+  TestResultBadge,
+  ComplianceDocumentStatusBadge,
+} from "@/components/ui/status-badge";
 import { DocumentsList } from "@/components/documents/documents-list";
 import { StatusToggle } from "./status-toggle";
 import { AccessForm } from "./access-form";
@@ -27,7 +39,68 @@ import type {
   PropertyContactData,
   PropertyDocumentData,
   PropertyJobData,
+  PropertyFeedItem,
 } from "./page";
+
+const FEED_ICONS = {
+  job: Briefcase,
+  quote: FileText,
+  invoice: Receipt,
+  document: ImageIcon,
+  test_record: Activity,
+  compliance_document: FileCheck2,
+} as const;
+
+function feedItemHref(item: PropertyFeedItem): string | null {
+  switch (item.kind) {
+    case "job":
+      return `/jobs/${item.id}`;
+    case "quote":
+      return `/quotes/${item.id}`;
+    case "invoice":
+      return `/invoices/${item.id}`;
+    case "compliance_document":
+      return `/compliance-documents/${item.id}`;
+    case "test_record":
+      return `/jobs/${item.job_id}`;
+    case "document":
+      return item.job_id ? `/jobs/${item.job_id}` : null;
+  }
+}
+
+function feedItemTitle(item: PropertyFeedItem): string {
+  switch (item.kind) {
+    case "job":
+      return `Job — ${item.dateLabel}`;
+    case "quote":
+      return `${item.quote_number} · $${item.total.toFixed(2)}`;
+    case "invoice":
+      return `${item.invoice_number} · $${item.amount.toFixed(2)}`;
+    case "document":
+      return item.caption || `New ${item.type.replace("_", " ")}`;
+    case "test_record":
+      return `${item.circuit_or_equipment} — ${item.test_type_name}`;
+    case "compliance_document":
+      return item.template_name;
+  }
+}
+
+function feedItemBadge(item: PropertyFeedItem) {
+  switch (item.kind) {
+    case "job":
+      return <JobStatusBadge status={item.job_status} />;
+    case "quote":
+      return <QuoteStatusBadge status={item.status} />;
+    case "invoice":
+      return <InvoiceRecordStatusBadge status={item.status} />;
+    case "test_record":
+      return <TestResultBadge result={item.result} />;
+    case "compliance_document":
+      return <ComplianceDocumentStatusBadge status={item.status} />;
+    case "document":
+      return null;
+  }
+}
 
 const TABS = [
   { key: "overview", label: "Overview", icon: Info },
@@ -48,6 +121,7 @@ export function PropertyTabs({
   contacts,
   documents,
   jobs,
+  feed,
   allContacts,
 }: {
   property: PropertyDetailData;
@@ -57,6 +131,7 @@ export function PropertyTabs({
   contacts: PropertyContactData[];
   documents: PropertyDocumentData[];
   jobs: PropertyJobData[];
+  feed: PropertyFeedItem[];
   allContacts: { id: string; name: string }[];
 }) {
   const [tab, setTab] = useState<TabKey>("overview");
@@ -175,28 +250,46 @@ export function PropertyTabs({
         ) : null}
 
         {tab === "history" ? (
-          jobs.length === 0 ? (
-            <p className="text-sm text-neutral-500">No jobs recorded for this property yet.</p>
+          feed.length === 0 ? (
+            <p className="text-sm text-neutral-500">No activity recorded for this property yet.</p>
           ) : (
             <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-              {jobs.map((job) => (
-                <li key={job.id}>
-                  <Link
-                    href={`/jobs/${job.id}`}
-                    className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                        {job.createdAtLabel}
+              {feed.map((item) => {
+                const Icon = FEED_ICONS[item.kind];
+                const href = feedItemHref(item);
+                const content = (
+                  <>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                        {feedItemTitle(item)}
                       </p>
-                      {job.nextVisitLabel ? (
-                        <p className="text-xs text-neutral-500">Next visit {job.nextVisitLabel}</p>
-                      ) : null}
+                      <p className="text-xs text-neutral-500">
+                        {item.kind === "job" && item.nextVisitLabel
+                          ? `Next visit ${item.nextVisitLabel}`
+                          : item.dateLabel}
+                      </p>
                     </div>
-                    <JobStatusBadge status={job.job_status} />
-                  </Link>
-                </li>
-              ))}
+                    {feedItemBadge(item)}
+                  </>
+                );
+                return (
+                  <li key={`${item.kind}-${item.id}`}>
+                    {href ? (
+                      <Link
+                        href={href}
+                        className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">{content}</div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )
         ) : null}

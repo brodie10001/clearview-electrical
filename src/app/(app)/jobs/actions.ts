@@ -3,7 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { JobStatus, VisitStatus, VariationStatus } from "@/types/database";
+import type {
+  JobStatus,
+  VisitStatus,
+  VariationStatus,
+  TestResult,
+  CertificateStatus,
+  NoticeStatus,
+} from "@/types/database";
 
 function revalidateSchedule() {
   revalidatePath("/jobs");
@@ -146,5 +153,63 @@ export async function updateVariationStatus(
 export async function deleteVariation(variationId: string, jobId: string) {
   const supabase = await createClient();
   await supabase.from("job_variations").delete().eq("id", variationId);
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function createTestRecord(jobId: string, formData: FormData) {
+  const circuitOrEquipment = formData.get("circuit_or_equipment") as string;
+  const testTypeId = formData.get("test_type_id") as string;
+  const customTestTypeLabel = (formData.get("custom_test_type_label") as string) || null;
+  const measuredValueRaw = formData.get("measured_value") as string;
+  const unit = (formData.get("unit") as string) || null;
+  const result = formData.get("result") as TestResult;
+  const instrumentUsed = (formData.get("instrument_used") as string) || null;
+  const testedBy = (formData.get("tested_by") as string) || null;
+  const notes = (formData.get("notes") as string) || null;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("test_records").insert({
+    job_id: jobId,
+    circuit_or_equipment: circuitOrEquipment,
+    test_type_id: testTypeId,
+    custom_test_type_label: customTestTypeLabel,
+    measured_value: measuredValueRaw ? Number(measuredValueRaw) : null,
+    unit,
+    result,
+    instrument_used: instrumentUsed,
+    tested_by: testedBy,
+    notes,
+  });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function deleteTestRecord(testRecordId: string, jobId: string) {
+  const supabase = await createClient();
+  await supabase.from("test_records").delete().eq("id", testRecordId);
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function updateJobComplianceStatus(jobId: string, formData: FormData) {
+  const requiresTesting = formData.get("requires_testing") === "on";
+  const requiresCertificate = formData.get("requires_certificate") === "on";
+  const certificateStatus = formData.get("certificate_status") as CertificateStatus;
+  const requiresNotice = formData.get("requires_notice") === "on";
+  const noticeStatus = formData.get("notice_status") as NoticeStatus;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("job_compliance_status").upsert({
+    job_id: jobId,
+    requires_testing: requiresTesting,
+    requires_certificate: requiresCertificate,
+    certificate_status: certificateStatus,
+    requires_notice: requiresNotice,
+    notice_status: noticeStatus,
+  });
+
+  if (error) throw new Error(error.message);
+
   revalidatePath(`/jobs/${jobId}`);
 }

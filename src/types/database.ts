@@ -60,6 +60,27 @@ export type InvoiceAmountType = "percentage" | "fixed";
 
 export type VariationStatus = "Draft" | "Approved" | "Rejected";
 
+export type ComplianceDocumentStatus = "Draft" | "Issued" | "Lodged";
+export type CertificateStatus = "Not Required" | "Required" | "Pending" | "Issued";
+export type NoticeStatus = "Not Required" | "Required" | "Lodged";
+export type TestResult = "Pass" | "Fail" | "N/A";
+
+export type ComplianceFieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "date"
+  | "checkbox"
+  | "select";
+
+export interface ComplianceFieldDef {
+  key: string;
+  label: string;
+  type: ComplianceFieldType;
+  required: boolean;
+  options?: string[];
+}
+
 export type DocumentType =
   | "photo"
   | "floor_plan"
@@ -717,6 +738,149 @@ export interface Database {
             columns: ["quote_id"];
             isOneToOne: false;
             referencedRelation: "quotes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      compliance_document_templates: {
+        Row: {
+          id: string;
+          name: string;
+          category: string;
+          field_schema: ComplianceFieldDef[];
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["compliance_document_templates"]["Row"]> & {
+          name: string;
+          category: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["compliance_document_templates"]["Row"]>;
+        Relationships: [];
+      };
+      compliance_documents: {
+        Row: {
+          id: string;
+          job_id: string;
+          property_id: string;
+          template_id: string;
+          field_values: Record<string, unknown>;
+          status: ComplianceDocumentStatus;
+          external_reference: string | null;
+          issued_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["compliance_documents"]["Row"]> & {
+          job_id: string;
+          property_id: string;
+          template_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["compliance_documents"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "compliance_documents_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "compliance_documents_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "compliance_documents_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "compliance_document_templates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      test_types: {
+        Row: {
+          id: string;
+          name: string;
+          default_unit: string | null;
+          active: boolean;
+          is_custom: boolean;
+        };
+        Insert: Partial<Database["public"]["Tables"]["test_types"]["Row"]> & { name: string };
+        Update: Partial<Database["public"]["Tables"]["test_types"]["Row"]>;
+        Relationships: [];
+      };
+      test_records: {
+        Row: {
+          id: string;
+          job_id: string;
+          circuit_or_equipment: string;
+          test_type_id: string;
+          custom_test_type_label: string | null;
+          measured_value: number | null;
+          unit: string | null;
+          result: TestResult;
+          instrument_used: string | null;
+          tested_at: string;
+          tested_by: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["test_records"]["Row"]> & {
+          job_id: string;
+          circuit_or_equipment: string;
+          test_type_id: string;
+          result: TestResult;
+        };
+        Update: Partial<Database["public"]["Tables"]["test_records"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "test_records_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "test_records_test_type_id_fkey";
+            columns: ["test_type_id"];
+            isOneToOne: false;
+            referencedRelation: "test_types";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "test_records_tested_by_fkey";
+            columns: ["tested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_compliance_status: {
+        Row: {
+          job_id: string;
+          requires_testing: boolean;
+          requires_certificate: boolean;
+          certificate_status: CertificateStatus;
+          requires_notice: boolean;
+          notice_status: NoticeStatus;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["job_compliance_status"]["Row"]> & {
+          job_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["job_compliance_status"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "job_compliance_status_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: true;
+            referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
         ];

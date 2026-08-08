@@ -5,6 +5,8 @@ import type {
   InvoiceRecordStatus,
   QuoteStatus,
   VisitStatus,
+  ComplianceDocumentStatus,
+  TestResult,
 } from "@/types/database";
 
 const JOB_STATUS_STYLES: Record<JobStatus, string> = {
@@ -117,6 +119,44 @@ export function InvoiceRecordStatusBadge({ status }: { status: InvoiceRecordStat
       )}
     >
       {status}
+    </span>
+  );
+}
+
+const COMPLIANCE_DOCUMENT_STATUS_STYLES: Record<ComplianceDocumentStatus, string> = {
+  Draft: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
+  Issued: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+  Lodged: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
+};
+
+export function ComplianceDocumentStatusBadge({ status }: { status: ComplianceDocumentStatus }) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+        COMPLIANCE_DOCUMENT_STATUS_STYLES[status],
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+const TEST_RESULT_STYLES: Record<TestResult, string> = {
+  Pass: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
+  Fail: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400",
+  "N/A": "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
+};
+
+export function TestResultBadge({ result }: { result: TestResult }) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+        TEST_RESULT_STYLES[result],
+      )}
+    >
+      {result}
     </span>
   );
 }
