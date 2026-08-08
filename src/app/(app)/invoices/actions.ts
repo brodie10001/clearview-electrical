@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAcceptedQuote } from "@/lib/quotes";
 import { dueDateFromTerms } from "@/lib/payment-terms";
 import { todayDateString } from "@/lib/format";
 import type { PaymentTerms, InvoiceAmountType, InvoiceRecordStatus } from "@/types/database";
@@ -19,19 +20,12 @@ function revalidateInvoice(invoiceId: string, jobId: string) {
 // Recomputed server-side (never trusted from the client) so a stale or
 // tampered client value can never lock in a wrong invoice amount.
 async function getJobRevisedContractValue(supabase: SupabaseServerClient, jobId: string) {
-  const [quoteRes, variationsRes] = await Promise.all([
-    supabase
-      .from("quotes")
-      .select("total")
-      .eq("job_id", jobId)
-      .eq("status", "Accepted")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [acceptedQuote, variationsRes] = await Promise.all([
+    getAcceptedQuote(supabase, jobId),
     supabase.from("job_variations").select("amount").eq("job_id", jobId).eq("status", "Approved"),
   ]);
 
-  const originalContractValue = quoteRes.data?.total ?? 0;
+  const originalContractValue = acceptedQuote?.total ?? 0;
   const approvedVariations = (variationsRes.data ?? []).reduce(
     (sum, v) => sum + Number(v.amount),
     0,

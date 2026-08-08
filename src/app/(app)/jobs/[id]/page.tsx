@@ -16,6 +16,7 @@ import { DocumentsList } from "@/components/documents/documents-list";
 import { formatDate, formatTime, todayDateString } from "@/lib/format";
 import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { createQuote } from "@/app/(app)/quotes/actions";
+import { getAcceptedQuote } from "@/lib/quotes";
 import { computeJobBilling } from "@/lib/billing";
 import type {
   JobStatus,
@@ -107,26 +108,27 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
     .order("created_at", { ascending: false })
     .returns<VariationData[]>();
 
-  const [invoicesRes, templatesRes, stagesRes, businessSettingsRes] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select("id, invoice_number, stage_label, amount, status, issue_date, due_date, payments(amount)")
-      .eq("job_id", id)
-      .order("issue_date", { ascending: false })
-      .returns<
-        (InvoiceListItem & { status: InvoiceRecordStatus; payments: { amount: number }[] })[]
-      >(),
-    supabase.from("payment_schedule_templates").select("id, name").order("name").returns<TemplateOption[]>(),
-    supabase
-      .from("payment_schedule_template_stages")
-      .select("id, template_id, label, percentage")
-      .order("sort_order")
-      .returns<TemplateStageOption[]>(),
-    supabase.from("business_settings").select("default_payment_terms").eq("id", true).single(),
-  ]);
+  const [invoicesRes, templatesRes, stagesRes, businessSettingsRes, acceptedQuote] =
+    await Promise.all([
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, stage_label, amount, status, issue_date, due_date, payments(amount)")
+        .eq("job_id", id)
+        .order("issue_date", { ascending: false })
+        .returns<
+          (InvoiceListItem & { status: InvoiceRecordStatus; payments: { amount: number }[] })[]
+        >(),
+      supabase.from("payment_schedule_templates").select("id, name").order("name").returns<TemplateOption[]>(),
+      supabase
+        .from("payment_schedule_template_stages")
+        .select("id, template_id, label, percentage")
+        .order("sort_order")
+        .returns<TemplateStageOption[]>(),
+      supabase.from("business_settings").select("default_payment_terms").eq("id", true).single(),
+      getAcceptedQuote(supabase, id),
+    ]);
 
   const invoices = invoicesRes.data ?? [];
-  const acceptedQuote = (quotes ?? []).find((q) => q.status === "Accepted");
   const approvedVariationsSum = (variations ?? [])
     .filter((v) => v.status === "Approved")
     .reduce((sum, v) => sum + v.amount, 0);
