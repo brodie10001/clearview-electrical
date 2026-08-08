@@ -11,6 +11,7 @@ import {
 } from "@/components/dashboard/recent-activity-widget";
 import { PersonalNotesWidget } from "@/components/dashboard/personal-notes-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
+import { todayDateString } from "@/lib/format";
 import type { JobStatus } from "@/types/database";
 
 const STALLED_STATUSES = new Set(["On Hold", "Waiting"]);
@@ -18,6 +19,7 @@ const OPEN_STATUSES: JobStatus[] = [
   "New",
   "Quoting",
   "Awaiting Approval",
+  "Ready to Schedule",
   "Scheduled",
   "Travelling",
   "On Site",
@@ -29,10 +31,20 @@ const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
 interface JobRow {
   id: string;
   job_status: TodayJob["job_status"];
-  scheduled_at: string | null;
   updated_at: string;
   properties: { address: string } | null;
   contacts: { name: string } | null;
+}
+
+interface TodayVisitRow {
+  id: string;
+  start_time: string | null;
+  jobs: {
+    id: string;
+    job_status: JobStatus;
+    properties: { address: string } | null;
+    contacts: { name: string } | null;
+  } | null;
 }
 
 function selectStalledJobs(
@@ -68,19 +80,15 @@ export default async function DashboardPage() {
 
   const firstName = (profile?.full_name || profile?.email || "there").split(" ")[0];
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(startOfDay);
-  endOfDay.setDate(endOfDay.getDate() + 1);
+  const today = todayDateString();
 
-  const [todayJobsRes, openJobsRes, recentJobsRes, recentDocsRes, notesRes] = await Promise.all([
+  const [todayVisitsRes, openJobsRes, recentJobsRes, recentDocsRes, notesRes] = await Promise.all([
     supabase
-      .from("jobs")
-      .select("id, job_status, scheduled_at, updated_at, properties(address), contacts(name)")
-      .gte("scheduled_at", startOfDay.toISOString())
-      .lt("scheduled_at", endOfDay.toISOString())
-      .order("scheduled_at", { ascending: true })
-      .returns<JobRow[]>(),
+      .from("job_visits")
+      .select("id, start_time, jobs(id, job_status, properties(address), contacts(name))")
+      .eq("scheduled_date", today)
+      .order("start_time", { ascending: true, nullsFirst: false })
+      .returns<TodayVisitRow[]>(),
     supabase
       .from("jobs")
       .select("id, job_status, updated_at, properties(address)")
@@ -112,13 +120,16 @@ export default async function DashboardPage() {
     supabase.from("personal_notes").select("content").eq("user_id", user!.id).maybeSingle(),
   ]);
 
-  const todayJobs: TodayJob[] = (todayJobsRes.data ?? []).map((job) => ({
-    id: job.id,
-    job_status: job.job_status,
-    scheduled_at: job.scheduled_at,
-    property_address: job.properties?.address ?? "Unknown property",
-    contact_name: job.contacts?.name ?? null,
-  }));
+  const todayJobs: TodayJob[] = (todayVisitsRes.data ?? [])
+    .filter((visit) => visit.jobs)
+    .map((visit) => ({
+      visitId: visit.id,
+      jobId: visit.jobs!.id,
+      job_status: visit.jobs!.job_status,
+      start_time: visit.start_time,
+      property_address: visit.jobs!.properties?.address ?? "Unknown property",
+      contact_name: visit.jobs!.contacts?.name ?? null,
+    }));
 
   const stalledJobs = selectStalledJobs(openJobsRes.data ?? []);
 

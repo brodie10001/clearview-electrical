@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/nav/sidebar";
 import { BottomNav } from "@/components/nav/bottom-nav";
 import { QuickActionButton } from "@/components/quick-action/quick-action-button";
+import { OfflinePhotoIndicator } from "@/components/offline-photo-indicator";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <main className="min-w-0 flex-1 pb-28 md:pb-8">{children}</main>
       <BottomNav />
       <QuickActionButton />
+      <OfflinePhotoIndicator />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { JobStatusBadge } from "@/components/ui/status-badge";
+import { DocumentsList } from "@/components/documents/documents-list";
 import { StatusToggle } from "./status-toggle";
 import { AccessForm } from "./access-form";
 import { ElectricalForm } from "./electrical-form";
@@ -170,27 +171,7 @@ export function PropertyTabs({
         ) : null}
 
         {tab === "documents" ? (
-          documents.length === 0 ? (
-            <p className="text-sm text-neutral-500">No documents on file yet.</p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-              {documents.map((doc) => (
-                <li key={doc.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                    <FileImage className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                      {doc.caption || doc.type.replace("_", " ")}
-                    </p>
-                    <p className="text-xs capitalize text-neutral-500">
-                      {doc.type.replace("_", " ")} · {doc.createdAtLabel}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )
+          <DocumentsList documents={documents} revalidatePaths={[`/properties/${property.id}`]} />
         ) : null}
 
         {tab === "history" ? (
@@ -208,8 +189,8 @@ export function PropertyTabs({
                       <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
                         {job.createdAtLabel}
                       </p>
-                      {job.scheduledAtLabel ? (
-                        <p className="text-xs text-neutral-500">Scheduled {job.scheduledAtLabel}</p>
+                      {job.nextVisitLabel ? (
+                        <p className="text-xs text-neutral-500">Next visit {job.nextVisitLabel}</p>
                       ) : null}
                     </div>
                     <JobStatusBadge status={job.job_status} />

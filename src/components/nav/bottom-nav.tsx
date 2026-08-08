@@ -25,7 +25,7 @@ export function BottomNav() {
               className={clsx(
                 "flex flex-col items-center gap-0.5 rounded-full px-3.5 py-2 text-[10px] font-medium transition-colors",
                 active
-                  ? "bg-amber-500 text-white"
+                  ? "bg-[#4F9FE0] text-white"
                   : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100",
               )}
             >

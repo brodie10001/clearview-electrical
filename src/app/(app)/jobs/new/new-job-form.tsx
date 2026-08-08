@@ -87,16 +87,9 @@ export function NewJobForm({
         </select>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-          Scheduled time (optional)
-        </label>
-        <input
-          type="datetime-local"
-          name="scheduled_at"
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
-        />
-      </div>
+      <p className="text-xs text-neutral-500">
+        You can schedule a visit for this job once it&apos;s created.
+      </p>
 
       <button
         type="submit"

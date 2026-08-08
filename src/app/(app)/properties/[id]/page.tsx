@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatVisitDate, formatVisitTime, todayDateString } from "@/lib/format";
 import { PropertyTabs } from "./property-tabs";
 import type {
   PropertyType,
@@ -8,6 +8,7 @@ import type {
   PropertyContactRole,
   PhaseType,
   DocumentType,
+  PhotoCategory,
   JobStatus,
 } from "@/types/database";
 
@@ -61,6 +62,7 @@ export interface PropertyContactData {
 export interface PropertyDocumentData {
   id: string;
   type: DocumentType;
+  photo_category: PhotoCategory | null;
   file_url: string;
   caption: string | null;
   created_at: string;
@@ -70,10 +72,9 @@ export interface PropertyDocumentData {
 export interface PropertyJobData {
   id: string;
   job_status: JobStatus;
-  scheduled_at: string | null;
   created_at: string;
   createdAtLabel: string;
-  scheduledAtLabel: string | null;
+  nextVisitLabel: string | null;
 }
 
 export default async function PropertyDetailPage({ params }: PageProps<"/properties/[id]">) {
@@ -97,16 +98,16 @@ export default async function PropertyDetailPage({ params }: PageProps<"/propert
         .returns<PropertyContactData[]>(),
       supabase
         .from("documents")
-        .select("id, type, file_url, caption, created_at")
+        .select("id, type, photo_category, file_url, caption, created_at")
         .eq("property_id", id)
         .order("created_at", { ascending: false })
         .returns<Omit<PropertyDocumentData, "createdAtLabel">[]>(),
       supabase
         .from("jobs")
-        .select("id, job_status, scheduled_at, created_at")
+        .select("id, job_status, created_at")
         .eq("property_id", id)
         .order("created_at", { ascending: false })
-        .returns<Omit<PropertyJobData, "createdAtLabel" | "scheduledAtLabel">[]>(),
+        .returns<Omit<PropertyJobData, "createdAtLabel" | "nextVisitLabel">[]>(),
       supabase.from("contacts").select("id, name").order("name"),
     ]);
 
@@ -117,13 +118,37 @@ export default async function PropertyDetailPage({ params }: PageProps<"/propert
     createdAtLabel: formatDate(doc.created_at),
   }));
 
-  const jobs: PropertyJobData[] = (jobsRes.data ?? []).map((job) => ({
-    ...job,
-    createdAtLabel: formatDate(job.created_at),
-    scheduledAtLabel: job.scheduled_at
-      ? `${formatDate(job.scheduled_at)} ${formatTime(job.scheduled_at)}`
-      : null,
-  }));
+  const jobIds = (jobsRes.data ?? []).map((j) => j.id);
+  const { data: visitsData } =
+    jobIds.length > 0
+      ? await supabase
+          .from("job_visits")
+          .select("job_id, scheduled_date, start_time")
+          .in("job_id", jobIds)
+          .order("scheduled_date", { ascending: true })
+          .order("start_time", { ascending: true, nullsFirst: false })
+          .returns<{ job_id: string; scheduled_date: string; start_time: string | null }[]>()
+      : { data: [] as { job_id: string; scheduled_date: string; start_time: string | null }[] };
+
+  const today = todayDateString();
+  const nextVisitByJob = new Map<string, { scheduled_date: string; start_time: string | null }>();
+  for (const visit of visitsData ?? []) {
+    if (visit.scheduled_date < today) continue;
+    if (!nextVisitByJob.has(visit.job_id)) nextVisitByJob.set(visit.job_id, visit);
+  }
+
+  const jobs: PropertyJobData[] = (jobsRes.data ?? []).map((job) => {
+    const nextVisit = nextVisitByJob.get(job.id);
+    return {
+      ...job,
+      createdAtLabel: formatDate(job.created_at),
+      nextVisitLabel: nextVisit
+        ? `${formatVisitDate(nextVisit.scheduled_date)}${
+            nextVisit.start_time ? ` ${formatVisitTime(nextVisit.start_time)}` : ""
+          }`
+        : null,
+    };
+  });
 
   return (
     <PropertyTabs

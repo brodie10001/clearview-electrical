@@ -72,8 +72,23 @@ export async function createQuote(formData: FormData) {
 
 export async function updateQuoteStatus(quoteId: string, jobId: string, status: QuoteStatus) {
   const supabase = await createClient();
+
+  const { data: previous } = await supabase
+    .from("quotes")
+    .select("status")
+    .eq("id", quoteId)
+    .single();
+
   await supabase.from("quotes").update({ status }).eq("id", quoteId);
   await recalculateQuoteTotals(supabase, quoteId);
+
+  // Auto-advance the job on the transition into Accepted (not on every save
+  // of an already-accepted quote) — a one-off nudge, not an enforced link.
+  // The user can freely change the job status back or forward afterward.
+  if (status === "Accepted" && previous?.status !== "Accepted") {
+    await supabase.from("jobs").update({ job_status: "Ready to Schedule" }).eq("id", jobId);
+  }
+
   revalidateQuote(quoteId, jobId);
 }
 

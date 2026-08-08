@@ -22,6 +22,7 @@ export type JobStatus =
   | "New"
   | "Quoting"
   | "Awaiting Approval"
+  | "Ready to Schedule"
   | "Scheduled"
   | "Travelling"
   | "On Site"
@@ -49,11 +50,21 @@ export type DocumentType =
   | "defect_report"
   | "other";
 
+export type PhotoCategory =
+  | "Before"
+  | "After"
+  | "Issue-Defect"
+  | "Switchboard"
+  | "Testing-Compliance"
+  | "General";
+
 export type CompanyFont = "Helvetica" | "Times-Roman" | "Courier";
 
 export type QuoteStatus = "Draft" | "Sent" | "Accepted" | "Rejected";
 
 export type QuoteLineType = "labour" | "material";
+
+export type VisitStatus = "Scheduled" | "In Progress" | "Completed" | "Cancelled" | "Rescheduled";
 
 export interface Database {
   public: {
@@ -231,7 +242,6 @@ export interface Database {
           job_status: JobStatus;
           outcome: JobOutcome | null;
           invoice_status: InvoiceStatus;
-          scheduled_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -256,12 +266,48 @@ export interface Database {
           },
         ];
       };
+      job_visits: {
+        Row: {
+          id: string;
+          job_id: string;
+          scheduled_date: string;
+          start_time: string | null;
+          expected_duration_minutes: number | null;
+          assigned_worker: string | null;
+          notes: string | null;
+          visit_status: VisitStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["job_visits"]["Row"]> & {
+          job_id: string;
+          scheduled_date: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["job_visits"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "job_visits_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_visits_assigned_worker_fkey";
+            columns: ["assigned_worker"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       documents: {
         Row: {
           id: string;
           property_id: string;
           job_id: string | null;
           type: DocumentType;
+          photo_category: PhotoCategory | null;
           file_url: string;
           caption: string | null;
           created_at: string;

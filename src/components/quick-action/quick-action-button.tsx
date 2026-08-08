@@ -53,7 +53,7 @@ export function QuickActionButton() {
                   }}
                   className="flex items-center gap-2.5 rounded-full bg-white py-2 pl-3 pr-4 text-sm font-medium text-neutral-800 shadow-lg ring-1 ring-black/5 transition hover:bg-neutral-50 dark:bg-neutral-800 dark:text-neutral-100 dark:ring-white/10 dark:hover:bg-neutral-700"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#4F9FE0]/10 text-[#3D87C7] dark:bg-[#4F9FE0]/15 dark:text-[#4F9FE0]">
                     <Icon className="h-4 w-4" />
                   </span>
                   {action.label}
@@ -67,7 +67,7 @@ export function QuickActionButton() {
           aria-label={menuOpen ? "Close quick actions" : "Open quick actions"}
           aria-expanded={menuOpen}
           className={clsx(
-            "flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/30 transition-transform hover:bg-amber-600",
+            "flex h-14 w-14 items-center justify-center rounded-full bg-[#4F9FE0] text-white shadow-lg shadow-[#4F9FE0]/30 transition-transform hover:bg-[#4387BE]",
             menuOpen && "rotate-45",
           )}
         >
