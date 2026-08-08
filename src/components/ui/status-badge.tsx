@@ -1,5 +1,11 @@
 import { clsx } from "clsx";
-import type { JobStatus, InvoiceStatus, QuoteStatus, VisitStatus } from "@/types/database";
+import type {
+  JobStatus,
+  InvoiceStatus,
+  InvoiceRecordStatus,
+  QuoteStatus,
+  VisitStatus,
+} from "@/types/database";
 
 const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   New: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
@@ -85,6 +91,29 @@ export function VisitStatusBadge({ status }: { status: VisitStatus }) {
       className={clsx(
         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
         VISIT_STATUS_STYLES[status],
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+const INVOICE_RECORD_STATUS_STYLES: Record<InvoiceRecordStatus, string> = {
+  Draft: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
+  Sent: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+  "Partially Paid": "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+  Paid: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
+  Overdue: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400",
+  Void: "bg-neutral-100 text-neutral-400 line-through dark:bg-neutral-800 dark:text-neutral-500",
+  "Written Off": "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
+};
+
+export function InvoiceRecordStatusBadge({ status }: { status: InvoiceRecordStatus }) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap",
+        INVOICE_RECORD_STATUS_STYLES[status],
       )}
     >
       {status}

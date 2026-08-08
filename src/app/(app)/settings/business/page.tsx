@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { BusinessSettingsTabs } from "./business-settings-tabs";
-import type { CompanyFont } from "@/types/database";
+import type { CompanyFont, PaymentTerms } from "@/types/database";
 
 export interface BusinessSettings {
   trading_name: string | null;
@@ -20,6 +20,7 @@ export interface BusinessSettings {
   invoice_footer: string | null;
   default_material_markup_percent: number;
   gst_registered: boolean;
+  default_payment_terms: PaymentTerms;
 }
 
 export interface LabourRateType {
@@ -50,13 +51,34 @@ export interface CatalogueProductData {
   active: boolean;
 }
 
+export interface PaymentScheduleTemplateData {
+  id: string;
+  name: string;
+}
+
+export interface PaymentScheduleStageData {
+  id: string;
+  template_id: string;
+  label: string;
+  percentage: number;
+  sort_order: number;
+}
+
 export default async function BusinessSettingsPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [profileRes, settingsRes, rateTypesRes, materialsRes, productsRes] = await Promise.all([
+  const [
+    profileRes,
+    settingsRes,
+    rateTypesRes,
+    materialsRes,
+    productsRes,
+    templatesRes,
+    stagesRes,
+  ] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user!.id).single(),
     supabase.from("business_settings").select("*").eq("id", true).single(),
     supabase
@@ -78,6 +100,16 @@ export default async function BusinessSettingsPage() {
       .order("is_preferred", { ascending: false })
       .order("brand")
       .returns<CatalogueProductData[]>(),
+    supabase
+      .from("payment_schedule_templates")
+      .select("id, name")
+      .order("name")
+      .returns<PaymentScheduleTemplateData[]>(),
+    supabase
+      .from("payment_schedule_template_stages")
+      .select("id, template_id, label, percentage, sort_order")
+      .order("sort_order")
+      .returns<PaymentScheduleStageData[]>(),
   ]);
 
   const canEdit = profileRes.data?.role === "owner" || profileRes.data?.role === "admin";
@@ -100,6 +132,8 @@ export default async function BusinessSettingsPage() {
           rateTypes={rateTypesRes.data ?? []}
           materials={materialsRes.data ?? []}
           products={productsRes.data ?? []}
+          paymentScheduleTemplates={templatesRes.data ?? []}
+          paymentScheduleStages={stagesRes.data ?? []}
           canEdit={canEdit}
         />
       ) : (

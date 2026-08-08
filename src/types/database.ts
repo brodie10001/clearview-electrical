@@ -42,6 +42,24 @@ export type InvoiceStatus =
   | "Overdue"
   | "Written Off";
 
+// An individual invoice's own status (adds Void, drops the job-level-only
+// "Not Required"). jobs.invoice_status is derived from these automatically
+// -- see recompute_job_invoice_status -- and is never manually set.
+export type InvoiceRecordStatus =
+  | "Draft"
+  | "Sent"
+  | "Partially Paid"
+  | "Paid"
+  | "Overdue"
+  | "Void"
+  | "Written Off";
+
+export type PaymentTerms = "Due on Receipt" | "7 days" | "14 days" | "30 days";
+
+export type InvoiceAmountType = "percentage" | "fixed";
+
+export type VariationStatus = "Draft" | "Approved" | "Rejected";
+
 export type DocumentType =
   | "photo"
   | "floor_plan"
@@ -93,6 +111,7 @@ export interface Database {
           phone: string | null;
           billing_address: string | null;
           notes: string | null;
+          payment_terms: PaymentTerms | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["customers"]["Row"]> & {
@@ -368,6 +387,7 @@ export interface Database {
           invoice_footer: string | null;
           default_material_markup_percent: number;
           gst_registered: boolean;
+          default_payment_terms: PaymentTerms;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["business_settings"]["Row"]>;
@@ -394,6 +414,7 @@ export interface Database {
         Row: {
           id: string;
           job_id: string;
+          quote_number: string;
           status: QuoteStatus;
           expiry_date: string | null;
           notes: string | null;
@@ -506,6 +527,123 @@ export interface Database {
             columns: ["generic_material_id"];
             isOneToOne: false;
             referencedRelation: "generic_materials";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_variations: {
+        Row: {
+          id: string;
+          job_id: string;
+          description: string;
+          amount: number;
+          status: VariationStatus;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["job_variations"]["Row"]> & {
+          job_id: string;
+          description: string;
+          amount: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["job_variations"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "job_variations_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payment_schedule_templates: {
+        Row: {
+          id: string;
+          name: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["payment_schedule_templates"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["payment_schedule_templates"]["Row"]>;
+        Relationships: [];
+      };
+      payment_schedule_template_stages: {
+        Row: {
+          id: string;
+          template_id: string;
+          label: string;
+          percentage: number;
+          sort_order: number;
+        };
+        Insert: Partial<
+          Database["public"]["Tables"]["payment_schedule_template_stages"]["Row"]
+        > & { template_id: string; label: string; percentage: number };
+        Update: Partial<Database["public"]["Tables"]["payment_schedule_template_stages"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "payment_schedule_template_stages_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_schedule_templates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          job_id: string;
+          invoice_number: string;
+          stage_label: string | null;
+          amount_type: InvoiceAmountType;
+          percentage: number | null;
+          amount: number;
+          issue_date: string;
+          payment_terms: PaymentTerms;
+          due_date: string;
+          status: InvoiceRecordStatus;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["invoices"]["Row"]> & {
+          job_id: string;
+          amount_type: InvoiceAmountType;
+          amount: number;
+          payment_terms: PaymentTerms;
+          due_date: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["invoices"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payments: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          amount: number;
+          paid_date: string;
+          method: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["payments"]["Row"]> & {
+          invoice_id: string;
+          amount: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["payments"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "payments_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
             referencedColumns: ["id"];
           },
         ];

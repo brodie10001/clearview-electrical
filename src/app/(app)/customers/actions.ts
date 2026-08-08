@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { PaymentTerms } from "@/types/database";
 
 export async function createCustomer(formData: FormData) {
   const name = formData.get("name") as string;
@@ -32,11 +33,19 @@ export async function updateCustomer(customerId: string, formData: FormData) {
   const phone = (formData.get("phone") as string) || null;
   const billingAddress = (formData.get("billing_address") as string) || null;
   const notes = (formData.get("notes") as string) || null;
+  const paymentTerms = (formData.get("payment_terms") as PaymentTerms) || null;
 
   const supabase = await createClient();
   await supabase
     .from("customers")
-    .update({ name, email, phone, billing_address: billingAddress, notes })
+    .update({
+      name,
+      email,
+      phone,
+      billing_address: billingAddress,
+      notes,
+      payment_terms: paymentTerms,
+    })
     .eq("id", customerId);
 
   revalidatePath(`/customers/${customerId}`);

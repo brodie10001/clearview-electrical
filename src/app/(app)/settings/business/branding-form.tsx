@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { updateBusinessSettings } from "./actions";
 import { LogoUploader } from "./logo-uploader";
+import { PAYMENT_TERMS_OPTIONS } from "@/lib/payment-terms";
 import type { BusinessSettings } from "./page";
 
 export function BrandingForm({
@@ -97,6 +98,26 @@ export function BrandingForm({
             />
             <p className="text-xs text-neutral-500">Pre-fills new material lines on quotes.</p>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            Default payment terms
+          </label>
+          <select
+            name="default_payment_terms"
+            defaultValue={settings.default_payment_terms}
+            className="max-w-xs rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+          >
+            {PAYMENT_TERMS_OPTIONS.map((term) => (
+              <option key={term} value={term}>
+                {term}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-neutral-500">
+            Pre-fills new invoices, unless a customer has their own override.
+          </p>
         </div>
 
         <label className="flex items-center gap-2.5 rounded-lg border border-neutral-200 px-3 py-2.5 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">

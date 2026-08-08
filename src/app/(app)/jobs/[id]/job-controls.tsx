@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateJobStatus, updateInvoiceStatus } from "../actions";
+import { updateJobStatus } from "../actions";
+import { InvoiceStatusBadge } from "@/components/ui/status-badge";
 import type { JobStatus, InvoiceStatus } from "@/types/database";
 
 const JOB_STATUSES: JobStatus[] = [
@@ -18,16 +19,6 @@ const JOB_STATUSES: JobStatus[] = [
   "Closed",
 ];
 
-const INVOICE_STATUSES: InvoiceStatus[] = [
-  "Not Required",
-  "Draft",
-  "Sent",
-  "Partially Paid",
-  "Paid",
-  "Overdue",
-  "Written Off",
-];
-
 export function JobControls({
   jobId,
   jobStatus,
@@ -38,7 +29,6 @@ export function JobControls({
   invoiceStatus: InvoiceStatus;
 }) {
   const [status, setStatus] = useState(jobStatus);
-  const [invoice, setInvoice] = useState(invoiceStatus);
   const [, startTransition] = useTransition();
 
   return (
@@ -63,22 +53,12 @@ export function JobControls({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-neutral-500">Invoice status</label>
-        <select
-          value={invoice}
-          onChange={(e) => {
-            const value = e.target.value as InvoiceStatus;
-            setInvoice(value);
-            startTransition(() => updateInvoiceStatus(jobId, value));
-          }}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
-        >
-          {INVOICE_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        <label className="text-xs font-medium text-neutral-500">
+          Invoice status <span className="text-neutral-400">(from invoices)</span>
+        </label>
+        <div className="flex h-[38px] items-center">
+          <InvoiceStatusBadge status={invoiceStatus} />
+        </div>
       </div>
     </div>
   );

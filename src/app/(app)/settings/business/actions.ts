@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Database, CompanyFont } from "@/types/database";
+import type { Database, CompanyFont, PaymentTerms } from "@/types/database";
 
 type BusinessSettingsUpdate = Database["public"]["Tables"]["business_settings"]["Update"];
 
@@ -24,6 +24,7 @@ export async function updateBusinessSettings(formData: FormData) {
       formData.get("default_material_markup_percent") || 0,
     ),
     gst_registered: formData.get("gst_registered") === "on",
+    default_payment_terms: (formData.get("default_payment_terms") as PaymentTerms) || "7 days",
   };
 
   const { error } = await supabase.from("business_settings").update(values).eq("id", true);
@@ -165,6 +166,84 @@ export async function toggleCatalogueProductActive(productId: string, active: bo
     .from("catalogue_products")
     .update({ active })
     .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function createPaymentScheduleTemplate(formData: FormData) {
+  const name = formData.get("name") as string;
+  const supabase = await createClient();
+  const { error } = await supabase.from("payment_schedule_templates").insert({ name });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function renamePaymentScheduleTemplate(templateId: string, formData: FormData) {
+  const name = formData.get("name") as string;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("payment_schedule_templates")
+    .update({ name })
+    .eq("id", templateId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function deletePaymentScheduleTemplate(templateId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("payment_schedule_templates").delete().eq("id", templateId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function addTemplateStage(templateId: string, formData: FormData) {
+  const label = formData.get("label") as string;
+  const percentage = Number(formData.get("percentage"));
+
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("payment_schedule_template_stages")
+    .select("id", { count: "exact", head: true })
+    .eq("template_id", templateId);
+
+  const { error } = await supabase.from("payment_schedule_template_stages").insert({
+    template_id: templateId,
+    label,
+    percentage,
+    sort_order: count ?? 0,
+  });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function updateTemplateStage(stageId: string, formData: FormData) {
+  const label = formData.get("label") as string;
+  const percentage = Number(formData.get("percentage"));
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("payment_schedule_template_stages")
+    .update({ label, percentage })
+    .eq("id", stageId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function deleteTemplateStage(stageId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("payment_schedule_template_stages").delete().eq("id", stageId);
 
   if (error) throw new Error(error.message);
 

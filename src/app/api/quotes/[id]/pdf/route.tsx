@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/format";
+import { contrastText, tint } from "@/lib/pdf-colors";
 import type { CompanyFont, QuoteStatus, QuoteLineType } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -10,34 +11,9 @@ function money(n: number) {
   return `$${n.toFixed(2)}`;
 }
 
-// Relative luminance (WCAG) to decide black or white text on a colored
-// background, so the PDF stays legible regardless of which brand colour the
-// business picks.
-function contrastText(hex: string): string {
-  const clean = hex.replace("#", "");
-  if (clean.length !== 6) return "#ffffff";
-  const r = parseInt(clean.slice(0, 2), 16) / 255;
-  const g = parseInt(clean.slice(2, 4), 16) / 255;
-  const b = parseInt(clean.slice(4, 6), 16) / 255;
-  const toLinear = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-  return luminance > 0.5 ? "#1a1a1a" : "#ffffff";
-}
-
-// Light tint of a brand colour, used for subtle backgrounds (table headers,
-// zebra striping) that stay on-brand without competing with body text.
-function tint(hex: string, amount: number): string {
-  const clean = hex.replace("#", "");
-  if (clean.length !== 6) return "#f5f5f5";
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  const mix = (c: number) => Math.round(c + (255 - c) * amount);
-  return `#${[mix(r), mix(g), mix(b)].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
-}
-
 interface QuotePdfData {
   id: string;
+  quote_number: string;
   status: QuoteStatus;
   expiry_date: string | null;
   subtotal: number;
@@ -246,7 +222,7 @@ function QuoteDocument({
         <View style={styles.metaRow}>
           <View>
             <Text style={styles.quoteTitle}>Quote</Text>
-            <Text style={styles.metaLine}>No. {quote.id.slice(0, 8).toUpperCase()}</Text>
+            <Text style={styles.metaLine}>No. {quote.quote_number}</Text>
             <Text style={styles.metaLine}>Date: {formatDate(quote.created_at)}</Text>
             {quote.expiry_date ? (
               <Text style={styles.metaLine}>Valid until: {formatDate(quote.expiry_date)}</Text>
@@ -350,7 +326,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     supabase
       .from("quotes")
       .select(
-        "id, status, expiry_date, subtotal, gst_amount, total, gst_applied, created_at, jobs(properties(address, customers(name, email, phone)))",
+        "id, quote_number, status, expiry_date, subtotal, gst_amount, total, gst_applied, created_at, jobs(properties(address, customers(name, email, phone)))",
       )
       .eq("id", id)
       .single()
@@ -397,7 +373,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="quote-${id.slice(0, 8)}.pdf"`,
+      "Content-Disposition": `attachment; filename="${quoteRes.data.quote_number}.pdf"`,
     },
   });
 }

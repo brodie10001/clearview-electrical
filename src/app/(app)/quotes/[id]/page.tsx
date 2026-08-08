@@ -9,6 +9,7 @@ import type { QuoteStatus, QuoteLineType } from "@/types/database";
 export interface QuoteDetailData {
   id: string;
   job_id: string;
+  quote_number: string;
   status: QuoteStatus;
   expiry_date: string | null;
   subtotal: number;
@@ -51,7 +52,7 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
     supabase
       .from("quotes")
       .select(
-        "id, job_id, status, expiry_date, subtotal, gst_amount, total, gst_applied, created_at, jobs(id, properties(id, address, customers(name)))",
+        "id, job_id, quote_number, status, expiry_date, subtotal, gst_amount, total, gst_applied, created_at, jobs(id, properties(id, address, customers(name)))",
       )
       .eq("id", id)
       .single()
@@ -90,7 +91,9 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
         <h1 className="mt-1 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
           Quote for {property?.customers?.name ?? "customer"}
         </h1>
-        <p className="text-xs text-neutral-500">Created {formatDate(quote.created_at)}</p>
+        <p className="text-xs text-neutral-500">
+          {quote.quote_number} · Created {formatDate(quote.created_at)}
+        </p>
       </div>
 
       <QuoteBuilder

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { JobStatus, InvoiceStatus, VisitStatus } from "@/types/database";
+import type { JobStatus, VisitStatus, VariationStatus } from "@/types/database";
 
 function revalidateSchedule() {
   revalidatePath("/jobs");
@@ -40,14 +40,6 @@ export async function updateJobStatus(jobId: string, jobStatus: JobStatus) {
   revalidatePath(`/jobs/${jobId}`);
   revalidatePath("/jobs");
   revalidatePath("/");
-}
-
-export async function updateInvoiceStatus(jobId: string, invoiceStatus: InvoiceStatus) {
-  const supabase = await createClient();
-  await supabase.from("jobs").update({ invoice_status: invoiceStatus }).eq("id", jobId);
-  revalidatePath(`/jobs/${jobId}`);
-  revalidatePath("/jobs");
-  revalidatePath("/finances");
 }
 
 export async function createVisit(jobId: string, formData: FormData) {
@@ -110,4 +102,49 @@ export async function deleteVisit(visitId: string, jobId: string) {
   await supabase.from("job_visits").delete().eq("id", visitId);
   revalidatePath(`/jobs/${jobId}`);
   revalidateSchedule();
+}
+
+export async function createVariation(jobId: string, formData: FormData) {
+  const description = formData.get("description") as string;
+  const amount = Number(formData.get("amount"));
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("job_variations")
+    .insert({ job_id: jobId, description, amount });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function updateVariation(variationId: string, jobId: string, formData: FormData) {
+  const description = formData.get("description") as string;
+  const amount = Number(formData.get("amount"));
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("job_variations")
+    .update({ description, amount })
+    .eq("id", variationId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function updateVariationStatus(
+  variationId: string,
+  jobId: string,
+  status: VariationStatus,
+) {
+  const supabase = await createClient();
+  await supabase.from("job_variations").update({ status }).eq("id", variationId);
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function deleteVariation(variationId: string, jobId: string) {
+  const supabase = await createClient();
+  await supabase.from("job_variations").delete().eq("id", variationId);
+  revalidatePath(`/jobs/${jobId}`);
 }

@@ -1,19 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, Phone, Mail, FileText, Plus, CalendarClock } from "lucide-react";
+import { MapPin, Phone, Mail, FileText, Plus, CalendarClock, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { JobControls } from "./job-controls";
 import { VisitsSection, type VisitData, type WorkerOption } from "./visits-section";
+import { VariationsSection, type VariationData } from "./variations-section";
+import {
+  InvoicesSection,
+  type InvoiceListItem,
+  type TemplateOption,
+  type TemplateStageOption,
+} from "./invoices-section";
+import { BillingSummary } from "./billing-summary";
 import { DocumentsList } from "@/components/documents/documents-list";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime, todayDateString } from "@/lib/format";
 import { QuoteStatusBadge } from "@/components/ui/status-badge";
 import { createQuote } from "@/app/(app)/quotes/actions";
+import { computeJobBilling } from "@/lib/billing";
 import type {
   JobStatus,
   InvoiceStatus,
+  InvoiceRecordStatus,
   DocumentType,
   PhotoCategory,
   QuoteStatus,
+  PaymentTerms,
 } from "@/types/database";
 
 interface JobDetail {
@@ -26,7 +37,7 @@ interface JobDetail {
   properties: {
     address: string;
     property_type: string;
-    customers: { id: string; name: string } | null;
+    customers: { id: string; name: string; payment_terms: PaymentTerms | null } | null;
   } | null;
   contacts: { name: string; phone: string | null; email: string | null } | null;
 }
@@ -38,7 +49,7 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
   const { data: job } = await supabase
     .from("jobs")
     .select(
-      "id, job_status, invoice_status, outcome, created_at, property_id, properties(address, property_type, customers(id, name)), contacts(name, phone, email)",
+      "id, job_status, invoice_status, outcome, created_at, property_id, properties(address, property_type, customers(id, name, payment_terms)), contacts(name, phone, email)",
     )
     .eq("id", id)
     .single()
@@ -82,10 +93,56 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
 
   const { data: quotes } = await supabase
     .from("quotes")
-    .select("id, status, total, created_at")
+    .select("id, quote_number, status, total, created_at")
     .eq("job_id", id)
     .order("created_at", { ascending: false })
-    .returns<{ id: string; status: QuoteStatus; total: number; created_at: string }[]>();
+    .returns<
+      { id: string; quote_number: string; status: QuoteStatus; total: number; created_at: string }[]
+    >();
+
+  const { data: variations } = await supabase
+    .from("job_variations")
+    .select("id, description, amount, status")
+    .eq("job_id", id)
+    .order("created_at", { ascending: false })
+    .returns<VariationData[]>();
+
+  const [invoicesRes, templatesRes, stagesRes, businessSettingsRes] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("id, invoice_number, stage_label, amount, status, issue_date, due_date, payments(amount)")
+      .eq("job_id", id)
+      .order("issue_date", { ascending: false })
+      .returns<
+        (InvoiceListItem & { status: InvoiceRecordStatus; payments: { amount: number }[] })[]
+      >(),
+    supabase.from("payment_schedule_templates").select("id, name").order("name").returns<TemplateOption[]>(),
+    supabase
+      .from("payment_schedule_template_stages")
+      .select("id, template_id, label, percentage")
+      .order("sort_order")
+      .returns<TemplateStageOption[]>(),
+    supabase.from("business_settings").select("default_payment_terms").eq("id", true).single(),
+  ]);
+
+  const invoices = invoicesRes.data ?? [];
+  const acceptedQuote = (quotes ?? []).find((q) => q.status === "Accepted");
+  const approvedVariationsSum = (variations ?? [])
+    .filter((v) => v.status === "Approved")
+    .reduce((sum, v) => sum + v.amount, 0);
+
+  const billing = computeJobBilling({
+    acceptedQuoteTotal: acceptedQuote?.total ?? 0,
+    approvedVariationsSum,
+    invoices: invoices.map((inv) => ({
+      amount: inv.amount,
+      status: inv.status,
+      paidAmount: inv.payments.reduce((sum, p) => sum + p.amount, 0),
+    })),
+  });
+
+  const defaultPaymentTerms: PaymentTerms =
+    job.properties?.customers?.payment_terms ?? businessSettingsRes.data?.default_payment_terms ?? "7 days";
 
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-6">
@@ -111,6 +168,13 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
           jobStatus={job.job_status}
           invoiceStatus={job.invoice_status}
         />
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+          <Wallet className="h-4 w-4" /> Billing summary
+        </h2>
+        <BillingSummary billing={billing} />
       </section>
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -171,7 +235,9 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
                     <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
                       ${quote.total.toFixed(2)}
                     </p>
-                    <p className="text-xs text-neutral-500">{formatDate(quote.created_at)}</p>
+                    <p className="text-xs text-neutral-500">
+                      {quote.quote_number} · {formatDate(quote.created_at)}
+                    </p>
                   </div>
                   <QuoteStatusBadge status={quote.status} />
                 </Link>
@@ -179,6 +245,29 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+          Variations
+        </h2>
+        <VariationsSection jobId={job.id} variations={variations ?? []} />
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+          Invoices
+        </h2>
+        <InvoicesSection
+          jobId={job.id}
+          invoices={invoices}
+          templates={templatesRes.data ?? []}
+          templateStages={stagesRes.data ?? []}
+          revisedContractValue={billing.revisedContractValue}
+          remainingToInvoice={billing.remainingToInvoice}
+          defaultPaymentTerms={defaultPaymentTerms}
+          today={todayDateString()}
+        />
       </section>
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">

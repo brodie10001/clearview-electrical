@@ -2,16 +2,25 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Palette, Clock, Package } from "lucide-react";
+import { Palette, Clock, Package, CalendarRange } from "lucide-react";
 import { BrandingForm } from "./branding-form";
 import { LabourRatesSection } from "./labour-rates-section";
 import { MaterialsCatalogueSection } from "./materials-catalogue-section";
-import type { BusinessSettings, LabourRateType, GenericMaterialData, CatalogueProductData } from "./page";
+import { PaymentScheduleTemplatesSection } from "./payment-schedule-templates-section";
+import type {
+  BusinessSettings,
+  LabourRateType,
+  GenericMaterialData,
+  CatalogueProductData,
+  PaymentScheduleTemplateData,
+  PaymentScheduleStageData,
+} from "./page";
 
 const TABS = [
   { key: "branding", label: "Branding & Details", icon: Palette },
   { key: "rates", label: "Labour Rates", icon: Clock },
   { key: "materials", label: "Materials Catalogue", icon: Package },
+  { key: "schedules", label: "Payment Schedules", icon: CalendarRange },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -21,12 +30,16 @@ export function BusinessSettingsTabs({
   rateTypes,
   materials,
   products,
+  paymentScheduleTemplates,
+  paymentScheduleStages,
   canEdit,
 }: {
   settings: BusinessSettings;
   rateTypes: LabourRateType[];
   materials: GenericMaterialData[];
   products: CatalogueProductData[];
+  paymentScheduleTemplates: PaymentScheduleTemplateData[];
+  paymentScheduleStages: PaymentScheduleStageData[];
   canEdit: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("branding");
@@ -70,6 +83,13 @@ export function BusinessSettingsTabs({
             materials={materials}
             products={products}
             defaultMarkupPercent={settings.default_material_markup_percent}
+            canEdit={canEdit}
+          />
+        ) : null}
+        {tab === "schedules" ? (
+          <PaymentScheduleTemplatesSection
+            templates={paymentScheduleTemplates}
+            stages={paymentScheduleStages}
             canEdit={canEdit}
           />
         ) : null}
