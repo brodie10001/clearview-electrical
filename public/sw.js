@@ -3,8 +3,14 @@
 // network so the app never serves stale business data from cache.
 // Bump this on any deploy where you want to force-evict old cached assets
 // for users with an already-installed PWA/service worker.
-const CACHE_NAME = "clearview-shell-v2";
-const APP_SHELL = ["/", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE_NAME = "clearview-shell-v3";
+const APP_SHELL = [
+  "/",
+  "/offline.html",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -57,7 +63,19 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
-        return (await cache.match("/")) || Response.error();
+        // Only the app shell route ("/") has a meaningful cached substitute.
+        // Serving that same cached shell for a *different* URL (e.g.
+        // /jobs/calendar) would silently render the wrong page — so every
+        // other route falls back to an honest "you're offline" page
+        // instead. Without this, a failed fetch with no exact-URL match
+        // falls through to Response.error(), which renders as a
+        // completely blank page with no error message at all.
+        if (url.pathname === "/") {
+          const cachedShell = await cache.match("/");
+          if (cachedShell) return cachedShell;
+        }
+        const offlinePage = await cache.match("/offline.html");
+        return offlinePage || Response.error();
       }),
     );
   }
