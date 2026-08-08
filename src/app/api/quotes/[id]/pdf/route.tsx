@@ -97,12 +97,6 @@ function buildStyles(settings: BusinessSettingsPdf) {
     wordmark: { fontSize: 20, fontWeight: 700, color: settings.primary_color },
     businessDetails: { alignItems: "flex-end" },
     businessDetailLine: { fontSize: 8.5, color: tint(settings.secondary_color, 0.35), marginBottom: 1.5 },
-    businessDetailName: {
-      fontSize: 9.5,
-      fontWeight: 700,
-      color: settings.secondary_color,
-      marginBottom: 2,
-    },
     divider: { height: 2.5, backgroundColor: settings.primary_color, marginTop: 16, marginBottom: 22 },
 
     metaRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 },
@@ -220,7 +214,11 @@ function QuoteDocument({
 }) {
   const property = quote.jobs?.properties;
   const customer = property?.customers;
-  const logoUrl = settings.logo_dark_url || settings.logo_url;
+  // The PDF page background is white, so it needs the primary (navy) logo,
+  // not logo_dark_url -- which for this business currently holds a
+  // light-coloured variant meant for dark backgrounds and would be near
+  // -invisible here.
+  const logoUrl = settings.logo_url || settings.logo_dark_url;
   const labourLines = lines.filter((l) => l.line_type === "labour");
   const materialLines = lines.filter((l) => l.line_type === "material");
   const styles = buildStyles(settings);
@@ -236,9 +234,6 @@ function QuoteDocument({
             <Text style={styles.wordmark}>{settings.trading_name || "Quote"}</Text>
           )}
           <View style={styles.businessDetails}>
-            {logoUrl && settings.trading_name ? (
-              <Text style={styles.businessDetailName}>{settings.trading_name}</Text>
-            ) : null}
             {settings.abn ? <Text style={styles.businessDetailLine}>ABN {settings.abn}</Text> : null}
             {settings.license_number ? (
               <Text style={styles.businessDetailLine}>Lic. {settings.license_number}</Text>
