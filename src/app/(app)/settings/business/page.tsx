@@ -29,13 +29,34 @@ export interface LabourRateType {
   is_active: boolean;
 }
 
+export interface GenericMaterialData {
+  id: string;
+  name: string;
+  category: string;
+  active: boolean;
+}
+
+export interface CatalogueProductData {
+  id: string;
+  generic_material_id: string;
+  brand: string | null;
+  product_name: string | null;
+  supplier_sku: string | null;
+  cost_price: number;
+  default_markup_percent: number | null;
+  sell_price: number;
+  is_preferred: boolean;
+  is_custom: boolean;
+  active: boolean;
+}
+
 export default async function BusinessSettingsPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [profileRes, settingsRes, rateTypesRes] = await Promise.all([
+  const [profileRes, settingsRes, rateTypesRes, materialsRes, productsRes] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user!.id).single(),
     supabase.from("business_settings").select("*").eq("id", true).single(),
     supabase
@@ -43,6 +64,20 @@ export default async function BusinessSettingsPage() {
       .select("id, name, rate_per_hour, is_active")
       .order("sort_order")
       .returns<LabourRateType[]>(),
+    supabase
+      .from("generic_materials")
+      .select("id, name, category, active")
+      .order("category")
+      .order("name")
+      .returns<GenericMaterialData[]>(),
+    supabase
+      .from("catalogue_products")
+      .select(
+        "id, generic_material_id, brand, product_name, supplier_sku, cost_price, default_markup_percent, sell_price, is_preferred, is_custom, active",
+      )
+      .order("is_preferred", { ascending: false })
+      .order("brand")
+      .returns<CatalogueProductData[]>(),
   ]);
 
   const canEdit = profileRes.data?.role === "owner" || profileRes.data?.role === "admin";
@@ -63,6 +98,8 @@ export default async function BusinessSettingsPage() {
         <BusinessSettingsTabs
           settings={settingsRes.data}
           rateTypes={rateTypesRes.data ?? []}
+          materials={materialsRes.data ?? []}
+          products={productsRes.data ?? []}
           canEdit={canEdit}
         />
       ) : (

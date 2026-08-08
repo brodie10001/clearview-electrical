@@ -31,6 +31,8 @@ export interface QuoteLineItemData {
   hours: number | null;
   cost: number | null;
   markup_percent: number | null;
+  quantity: number | null;
+  sell_price: number | null;
   line_total: number;
   labour_rate_types: { name: string } | null;
 }
@@ -57,7 +59,7 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
     supabase
       .from("quote_line_items")
       .select(
-        "id, line_type, description, labour_rate_type_id, rate_per_hour, hours, cost, markup_percent, line_total, labour_rate_types(name)",
+        "id, line_type, description, labour_rate_type_id, rate_per_hour, hours, cost, markup_percent, quantity, sell_price, line_total, labour_rate_types(name)",
       )
       .eq("quote_id", id)
       .order("created_at", { ascending: true })

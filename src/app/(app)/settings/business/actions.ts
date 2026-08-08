@@ -76,3 +76,97 @@ export async function toggleLabourRateTypeActive(rateTypeId: string, isActive: b
 
   revalidatePath("/settings/business");
 }
+
+export async function createGenericMaterial(formData: FormData) {
+  const name = formData.get("name") as string;
+  const category = formData.get("category") as string;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("generic_materials").insert({ name, category });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function toggleGenericMaterialActive(materialId: string, active: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("generic_materials")
+    .update({ active })
+    .eq("id", materialId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+function catalogueProductValues(formData: FormData) {
+  const markupRaw = formData.get("default_markup_percent") as string;
+  return {
+    brand: (formData.get("brand") as string) || null,
+    product_name: (formData.get("product_name") as string) || null,
+    supplier_sku: (formData.get("supplier_sku") as string) || null,
+    cost_price: Number(formData.get("cost_price") || 0),
+    default_markup_percent: markupRaw ? Number(markupRaw) : null,
+    sell_price: Number(formData.get("sell_price") || 0),
+  };
+}
+
+export async function createCatalogueProduct(genericMaterialId: string, formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("catalogue_products").insert({
+    generic_material_id: genericMaterialId,
+    is_custom: formData.get("is_custom") === "on",
+    ...catalogueProductValues(formData),
+  });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function updateCatalogueProduct(productId: string, formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("catalogue_products")
+    .update(catalogueProductValues(formData))
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+// Only one product per generic material can be preferred (enforced by a
+// partial unique index) -- clear the previous one first so this never
+// conflicts.
+export async function setPreferredCatalogueProduct(genericMaterialId: string, productId: string) {
+  const supabase = await createClient();
+  await supabase
+    .from("catalogue_products")
+    .update({ is_preferred: false })
+    .eq("generic_material_id", genericMaterialId)
+    .eq("is_preferred", true);
+
+  const { error } = await supabase
+    .from("catalogue_products")
+    .update({ is_preferred: true })
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function toggleCatalogueProductActive(productId: string, active: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("catalogue_products")
+    .update({ active })
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}

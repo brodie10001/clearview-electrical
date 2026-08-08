@@ -60,6 +60,8 @@ interface QuotePdfLine {
   hours: number | null;
   cost: number | null;
   markup_percent: number | null;
+  quantity: number | null;
+  sell_price: number | null;
   line_total: number;
   labour_rate_types: { name: string } | null;
 }
@@ -302,8 +304,8 @@ function QuoteDocument({
             <Text style={styles.tableSectionTitle}>Materials</Text>
             <View style={styles.tableHeader}>
               <Text style={{ ...styles.colDescription, ...styles.tableHeaderCell }}>Description</Text>
-              <Text style={{ ...styles.colQty, ...styles.tableHeaderCell }}>Cost</Text>
-              <Text style={{ ...styles.colRate, ...styles.tableHeaderCell }}>Markup</Text>
+              <Text style={{ ...styles.colQty, ...styles.tableHeaderCell }}>Qty</Text>
+              <Text style={{ ...styles.colRate, ...styles.tableHeaderCell }}>Unit price</Text>
               <Text style={{ ...styles.colTotal, ...styles.tableHeaderCell }}>Amount</Text>
             </View>
             {materialLines.map((line, i) => (
@@ -314,8 +316,10 @@ function QuoteDocument({
                 <Text style={{ ...styles.colDescription, ...styles.tableCell }}>
                   {line.description ?? ""}
                 </Text>
-                <Text style={{ ...styles.colQty, ...styles.tableCell }}>{money(line.cost ?? 0)}</Text>
-                <Text style={{ ...styles.colRate, ...styles.tableCell }}>{line.markup_percent}%</Text>
+                <Text style={{ ...styles.colQty, ...styles.tableCell }}>{line.quantity ?? 1}</Text>
+                <Text style={{ ...styles.colRate, ...styles.tableCell }}>
+                  {money(line.sell_price ?? 0)}
+                </Text>
                 <Text style={{ ...styles.colTotal, ...styles.tableCell }}>{money(line.line_total)}</Text>
               </View>
             ))}
@@ -359,7 +363,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     supabase
       .from("quote_line_items")
       .select(
-        "line_type, description, rate_per_hour, hours, cost, markup_percent, line_total, labour_rate_types(name)",
+        "line_type, description, rate_per_hour, hours, cost, markup_percent, quantity, sell_price, line_total, labour_rate_types(name)",
       )
       .eq("quote_id", id)
       .order("created_at", { ascending: true })

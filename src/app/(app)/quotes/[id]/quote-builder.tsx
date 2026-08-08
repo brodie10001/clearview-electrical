@@ -7,11 +7,11 @@ import {
   updateQuoteStatus,
   updateQuoteExpiry,
   addLabourLine,
-  addMaterialLine,
   updateLabourLine,
   updateMaterialLine,
   deleteLine,
 } from "../actions";
+import { AddMaterialDialog } from "./add-material-dialog";
 import type { QuoteDetailData, QuoteLineItemData, ActiveLabourRateType } from "./page";
 import type { QuoteStatus } from "@/types/database";
 
@@ -221,7 +221,7 @@ export function QuoteBuilder({
                 <LineRow
                   key={line.id}
                   title={line.description ?? "Material"}
-                  subtitle={`$${line.cost?.toFixed(2)} cost + ${line.markup_percent}% markup`}
+                  subtitle={`${line.quantity ?? 1} × $${(line.sell_price ?? 0).toFixed(2)}`}
                   total={line.line_total}
                   onEdit={() => setEditingLineId(line.id)}
                   onDelete={() =>
@@ -233,59 +233,22 @@ export function QuoteBuilder({
           </ul>
         )}
 
+        <button
+          onClick={() => setAddingMaterial(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        >
+          <Plus className="h-4 w-4" /> Add material
+        </button>
+
         {addingMaterial ? (
-          <form
-            action={async (formData) => {
-              await addMaterialLine(quote.id, quote.job_id, formData);
-              setAddingMaterial(false);
-              refresh();
-            }}
-            className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700 sm:flex-row sm:items-end"
-          >
-            <div className="flex flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Description</label>
-              <input name="description" required className={inputClass} />
-            </div>
-            <div className="flex w-28 flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Cost</label>
-              <input name="cost" type="number" step="0.01" min="0" required className={inputClass} />
-            </div>
-            <div className="flex w-24 flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Markup %</label>
-              <input
-                name="markup_percent"
-                type="number"
-                step="0.1"
-                min="0"
-                defaultValue={defaultMarkupPercent}
-                required
-                className={inputClass}
-              />
-            </div>
-            <div className="flex gap-1">
-              <button
-                type="submit"
-                className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddingMaterial(false)}
-                className="rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button
-            onClick={() => setAddingMaterial(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          >
-            <Plus className="h-4 w-4" /> Add material line
-          </button>
-        )}
+          <AddMaterialDialog
+            onClose={() => setAddingMaterial(false)}
+            quoteId={quote.id}
+            jobId={quote.job_id}
+            defaultMarkupPercent={defaultMarkupPercent}
+            onAdded={refresh}
+          />
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -464,6 +427,18 @@ function MaterialLineEditRow({
             step="0.1"
             min="0"
             defaultValue={line.markup_percent ?? 0}
+            required
+            className={inputClass}
+          />
+        </div>
+        <div className="flex w-20 flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-500">Qty</label>
+          <input
+            name="quantity"
+            type="number"
+            step="1"
+            min="1"
+            defaultValue={line.quantity ?? 1}
             required
             className={inputClass}
           />

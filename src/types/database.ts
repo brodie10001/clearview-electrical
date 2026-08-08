@@ -427,6 +427,9 @@ export interface Database {
           hours: number | null;
           cost: number | null;
           markup_percent: number | null;
+          quantity: number | null;
+          sell_price: number | null;
+          source_catalogue_product_id: string | null;
           line_total: number;
           created_at: string;
         };
@@ -448,6 +451,58 @@ export interface Database {
             columns: ["labour_rate_type_id"];
             isOneToOne: false;
             referencedRelation: "labour_rate_types";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "quote_line_items_source_catalogue_product_id_fkey";
+            columns: ["source_catalogue_product_id"];
+            isOneToOne: false;
+            referencedRelation: "catalogue_products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      generic_materials: {
+        Row: {
+          id: string;
+          name: string;
+          category: string;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["generic_materials"]["Row"]> & {
+          name: string;
+          category: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["generic_materials"]["Row"]>;
+        Relationships: [];
+      };
+      catalogue_products: {
+        Row: {
+          id: string;
+          generic_material_id: string;
+          brand: string | null;
+          product_name: string | null;
+          supplier_sku: string | null;
+          cost_price: number;
+          default_markup_percent: number | null;
+          sell_price: number;
+          is_preferred: boolean;
+          is_custom: boolean;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["catalogue_products"]["Row"]> & {
+          generic_material_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["catalogue_products"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_products_generic_material_id_fkey";
+            columns: ["generic_material_id"];
+            isOneToOne: false;
+            referencedRelation: "generic_materials";
             referencedColumns: ["id"];
           },
         ];

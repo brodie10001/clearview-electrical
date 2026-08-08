@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Palette, Clock } from "lucide-react";
+import { Palette, Clock, Package } from "lucide-react";
 import { BrandingForm } from "./branding-form";
 import { LabourRatesSection } from "./labour-rates-section";
-import type { BusinessSettings, LabourRateType } from "./page";
+import { MaterialsCatalogueSection } from "./materials-catalogue-section";
+import type { BusinessSettings, LabourRateType, GenericMaterialData, CatalogueProductData } from "./page";
 
 const TABS = [
   { key: "branding", label: "Branding & Details", icon: Palette },
   { key: "rates", label: "Labour Rates", icon: Clock },
+  { key: "materials", label: "Materials Catalogue", icon: Package },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -17,10 +19,14 @@ type TabKey = (typeof TABS)[number]["key"];
 export function BusinessSettingsTabs({
   settings,
   rateTypes,
+  materials,
+  products,
   canEdit,
 }: {
   settings: BusinessSettings;
   rateTypes: LabourRateType[];
+  materials: GenericMaterialData[];
+  products: CatalogueProductData[];
   canEdit: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("branding");
@@ -58,6 +64,14 @@ export function BusinessSettingsTabs({
         {tab === "branding" ? <BrandingForm settings={settings} canEdit={canEdit} /> : null}
         {tab === "rates" ? (
           <LabourRatesSection rateTypes={rateTypes} canEdit={canEdit} />
+        ) : null}
+        {tab === "materials" ? (
+          <MaterialsCatalogueSection
+            materials={materials}
+            products={products}
+            defaultMarkupPercent={settings.default_material_markup_percent}
+            canEdit={canEdit}
+          />
         ) : null}
       </div>
     </div>
