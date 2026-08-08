@@ -117,7 +117,12 @@ export default async function DashboardPage() {
           properties: { address: string } | null;
         }[]
       >(),
-    supabase.from("personal_notes").select("content").eq("user_id", user!.id).maybeSingle(),
+    supabase
+      .from("personal_note_items")
+      .select("id, text, is_checked, position")
+      .eq("user_id", user!.id)
+      .order("is_checked", { ascending: true })
+      .order("position", { ascending: true }),
   ]);
 
   const todayJobs: TodayJob[] = (todayVisitsRes.data ?? [])
@@ -164,7 +169,7 @@ export default async function DashboardPage() {
         <NeedsAttentionWidget jobs={stalledJobs} />
         <RecentActivityWidget items={recentActivity} />
         <div className="flex flex-col gap-4">
-          <PersonalNotesWidget initialContent={notesRes.data?.content ?? ""} />
+          <PersonalNotesWidget initialItems={notesRes.data ?? []} />
           <WeatherWidget />
         </div>
       </div>

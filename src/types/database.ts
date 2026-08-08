@@ -335,16 +335,19 @@ export interface Database {
           },
         ];
       };
-      personal_notes: {
+      personal_note_items: {
         Row: {
+          id: string;
           user_id: string;
-          content: string;
-          updated_at: string;
+          text: string;
+          is_checked: boolean;
+          position: number;
+          created_at: string;
         };
         Insert: Partial<
-          Database["public"]["Tables"]["personal_notes"]["Row"]
-        > & { user_id: string };
-        Update: Partial<Database["public"]["Tables"]["personal_notes"]["Row"]>;
+          Database["public"]["Tables"]["personal_note_items"]["Row"]
+        > & { user_id: string; text: string };
+        Update: Partial<Database["public"]["Tables"]["personal_note_items"]["Row"]>;
         Relationships: [];
       };
       business_settings: {
