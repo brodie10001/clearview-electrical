@@ -36,8 +36,14 @@ export async function updateSession(request: NextRequest) {
   const isPublicQuoteRoute =
     request.nextUrl.pathname.startsWith("/q/") ||
     request.nextUrl.pathname.startsWith("/api/q/");
+  // Password reset has to work for someone who is, by definition, not
+  // signed in: requesting the email and exchanging the emailed link's code
+  // for a (recovery) session both happen before any session cookie exists.
+  const isPasswordResetRoute =
+    request.nextUrl.pathname.startsWith("/forgot-password") ||
+    request.nextUrl.pathname.startsWith("/auth/callback");
 
-  if (!user && !isAuthRoute && !isPublicQuoteRoute) {
+  if (!user && !isAuthRoute && !isPublicQuoteRoute && !isPasswordResetRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
