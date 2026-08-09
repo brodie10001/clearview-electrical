@@ -46,68 +46,16 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: job } = await supabase
-    .from("jobs")
-    .select(
-      "id, job_status, invoice_status, outcome, created_at, property_id, properties(address, property_type, customers(id, name, payment_terms)), contacts(name, phone, email)",
-    )
-    .eq("id", id)
-    .single()
-    .returns<JobDetail>();
-
-  if (!job) notFound();
-
-  const { data: visits } = await supabase
-    .from("job_visits")
-    .select("id, scheduled_date, start_time, expected_duration_minutes, assigned_worker, notes, visit_status")
-    .eq("job_id", id)
-    .order("scheduled_date", { ascending: true })
-    .order("start_time", { ascending: true, nullsFirst: false })
-    .returns<VisitData[]>();
-
-  const { data: workers } = await supabase
-    .from("profiles")
-    .select("id, full_name, email")
-    .eq("active", true)
-    .returns<WorkerOption[]>();
-
-  const { data: documentsData } = await supabase
-    .from("documents")
-    .select("id, type, photo_category, caption, created_at")
-    .eq("job_id", id)
-    .order("created_at", { ascending: false })
-    .returns<
-      {
-        id: string;
-        type: DocumentType;
-        photo_category: PhotoCategory | null;
-        caption: string | null;
-        created_at: string;
-      }[]
-    >();
-
-  const documents = (documentsData ?? []).map((doc) => ({
-    ...doc,
-    createdAtLabel: formatDate(doc.created_at),
-  }));
-
-  const { data: quotes } = await supabase
-    .from("quotes")
-    .select("id, quote_number, status, total, created_at")
-    .eq("job_id", id)
-    .order("created_at", { ascending: false })
-    .returns<
-      { id: string; quote_number: string; status: QuoteStatus; total: number; created_at: string }[]
-    >();
-
-  const { data: variations } = await supabase
-    .from("job_variations")
-    .select("id, description, amount, status")
-    .eq("job_id", id)
-    .order("created_at", { ascending: false })
-    .returns<VariationData[]>();
-
+  // Every one of these only depends on `id` (already known from params), not
+  // on each other's results, so they all run as one parallel batch instead
+  // of a chain of sequential round-trips.
   const [
+    jobRes,
+    visitsRes,
+    workersRes,
+    documentsRes,
+    quotesRes,
+    variationsRes,
     invoicesRes,
     templatesRes,
     stagesRes,
@@ -119,6 +67,54 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
     complianceDocumentsRes,
     complianceTemplatesRes,
   ] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select(
+        "id, job_status, invoice_status, outcome, created_at, property_id, properties(address, property_type, customers(id, name, payment_terms)), contacts(name, phone, email)",
+      )
+      .eq("id", id)
+      .single()
+      .returns<JobDetail>(),
+    supabase
+      .from("job_visits")
+      .select("id, scheduled_date, start_time, expected_duration_minutes, assigned_worker, notes, visit_status")
+      .eq("job_id", id)
+      .order("scheduled_date", { ascending: true })
+      .order("start_time", { ascending: true, nullsFirst: false })
+      .returns<VisitData[]>(),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("active", true)
+      .returns<WorkerOption[]>(),
+    supabase
+      .from("documents")
+      .select("id, type, photo_category, caption, created_at")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false })
+      .returns<
+        {
+          id: string;
+          type: DocumentType;
+          photo_category: PhotoCategory | null;
+          caption: string | null;
+          created_at: string;
+        }[]
+      >(),
+    supabase
+      .from("quotes")
+      .select("id, quote_number, status, total, created_at")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false })
+      .returns<
+        { id: string; quote_number: string; status: QuoteStatus; total: number; created_at: string }[]
+      >(),
+    supabase
+      .from("job_variations")
+      .select("id, description, amount, status")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false })
+      .returns<VariationData[]>(),
     supabase
       .from("invoices")
       .select("id, invoice_number, stage_label, amount, status, issue_date, due_date, payments(amount)")
@@ -166,6 +162,20 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
       .eq("active", true)
       .returns<ComplianceTemplateOption[]>(),
   ]);
+
+  const job = jobRes.data;
+  if (!job) notFound();
+
+  const visits = visitsRes.data;
+  const workers = workersRes.data;
+  const documentsData = documentsRes.data;
+  const quotes = quotesRes.data;
+  const variations = variationsRes.data;
+
+  const documents = (documentsData ?? []).map((doc) => ({
+    ...doc,
+    createdAtLabel: formatDate(doc.created_at),
+  }));
 
   const invoices = invoicesRes.data ?? [];
   const approvedVariationsSum = (variations ?? [])
