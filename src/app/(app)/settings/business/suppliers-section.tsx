@@ -17,6 +17,7 @@ export function SuppliersSection({
   canEdit: boolean;
 }) {
   const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -25,6 +26,12 @@ export function SuppliersSection({
         preferred to feed the product&apos;s cost price. Import a supplier&apos;s price list from
         Excel or CSV to update many at once.
       </p>
+
+      {error ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-400">
+          {error}
+        </p>
+      ) : null}
 
       <ul className="flex flex-col divide-y divide-neutral-100 rounded-xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
         {suppliers.map((supplier) => (
@@ -61,8 +68,13 @@ export function SuppliersSection({
         adding ? (
           <form
             action={async (formData) => {
-              await createSupplier(formData);
-              setAdding(false);
+              setError(null);
+              try {
+                await createSupplier(formData);
+                setAdding(false);
+              } catch (e) {
+                setError(e instanceof Error ? e.message : "Failed to add supplier");
+              }
             }}
             className="flex items-end gap-2"
           >

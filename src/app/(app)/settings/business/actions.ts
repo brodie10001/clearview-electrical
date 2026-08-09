@@ -191,7 +191,15 @@ export async function createSupplier(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.from("suppliers").insert({ name });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Postgres unique_violation -- most likely this supplier already exists
+    // (e.g. "MM Electrical", seeded by the V6 migration) rather than a real
+    // failure, so say that plainly instead of surfacing a raw DB message.
+    if (error.code === "23505") {
+      throw new Error(`A supplier named "${name}" already exists.`);
+    }
+    throw new Error(error.message);
+  }
 
   revalidatePath("/settings/business");
 }

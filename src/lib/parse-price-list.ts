@@ -1,5 +1,3 @@
-import ExcelJS from "exceljs";
-
 export interface ParsedFile {
   headers: string[];
   rows: Record<string, string>[];
@@ -56,6 +54,13 @@ function parseCsv(text: string): { headers: string[]; rows: string[][] } {
 }
 
 async function parseXlsx(buffer: ArrayBuffer): Promise<{ headers: string[]; rows: string[][] }> {
+  // Loaded lazily rather than at module scope -- this module is imported by
+  // "./actions" (a "use server" file itself imported from a client
+  // component for its other exports), so a top-level import here would
+  // pull exceljs's whole dependency graph into that module's initialization
+  // path on every request to this route, not just the ones that actually
+  // upload a file.
+  const { default: ExcelJS } = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   const sheet = workbook.worksheets[0];
@@ -63,7 +68,7 @@ async function parseXlsx(buffer: ArrayBuffer): Promise<{ headers: string[]; rows
 
   const rows: string[][] = [];
   sheet.eachRow((row) => {
-    const values = (row.values as ExcelJS.CellValue[]).slice(1);
+    const values = (row.values as unknown[]).slice(1);
     rows.push(values.map((v) => (v == null ? "" : String(v).trim())));
   });
 
