@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/request-user";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { TodaysJobsWidget, type TodayJob } from "@/components/dashboard/todays-jobs-widget";
 import {
@@ -68,9 +69,7 @@ function selectStalledJobs(
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   const { data: profile } = await supabase
     .from("profiles")

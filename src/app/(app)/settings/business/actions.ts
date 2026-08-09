@@ -108,10 +108,10 @@ function catalogueProductValues(formData: FormData) {
   return {
     brand: (formData.get("brand") as string) || null,
     product_name: (formData.get("product_name") as string) || null,
-    supplier_sku: (formData.get("supplier_sku") as string) || null,
     cost_price: Number(formData.get("cost_price") || 0),
     default_markup_percent: markupRaw ? Number(markupRaw) : null,
     sell_price: Number(formData.get("sell_price") || 0),
+    unit: (formData.get("unit") as string) || "each",
   };
 }
 
@@ -161,12 +161,118 @@ export async function setPreferredCatalogueProduct(genericMaterialId: string, pr
   revalidatePath("/settings/business");
 }
 
+export async function dismissCategoryReview(productId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("catalogue_products")
+    .update({ needs_category_review: false })
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
 export async function toggleCatalogueProductActive(productId: string, active: boolean) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("catalogue_products")
     .update({ active })
     .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function createSupplier(formData: FormData) {
+  const name = formData.get("name") as string;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("suppliers").insert({ name });
+
+  if (error) {
+    // Postgres unique_violation -- most likely this supplier already exists
+    // (e.g. "MM Electrical", seeded by the V6 migration) rather than a real
+    // failure, so say that plainly instead of surfacing a raw DB message.
+    if (error.code === "23505") {
+      throw new Error(`A supplier named "${name}" already exists.`);
+    }
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/settings/business");
+}
+
+export async function toggleSupplierActive(supplierId: string, active: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("suppliers").update({ active }).eq("id", supplierId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+// Adds or updates this supplier's price for a product (one row per
+// product+supplier, enforced by a unique index) -- editing an existing price
+// just bumps last_updated and cost_price in place rather than adding a
+// duplicate row. Clears needs_supplier_review since a human just confirmed
+// this row directly.
+export async function upsertSupplierProductPrice(
+  catalogueProductId: string,
+  formData: FormData,
+) {
+  const supplierId = formData.get("supplier_id") as string;
+  const supplierSku = (formData.get("supplier_sku") as string) || null;
+  const costPrice = Number(formData.get("cost_price") || 0);
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("supplier_product_prices").upsert(
+    {
+      catalogue_product_id: catalogueProductId,
+      supplier_id: supplierId,
+      supplier_sku: supplierSku,
+      cost_price: costPrice,
+      needs_supplier_review: false,
+      last_updated: new Date().toISOString(),
+    },
+    { onConflict: "catalogue_product_id,supplier_id" },
+  );
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+// Only one supplier price per product can be preferred (enforced by a
+// partial unique index, same pattern as setPreferredCatalogueProduct) --
+// clear the previous one first so this never conflicts. Setting the new row
+// preferred fires the cost-sync trigger, updating the product's cached
+// cost_price/sell_price.
+export async function setPreferredSupplierPrice(catalogueProductId: string, priceId: string) {
+  const supabase = await createClient();
+  await supabase
+    .from("supplier_product_prices")
+    .update({ is_preferred: false })
+    .eq("catalogue_product_id", catalogueProductId)
+    .eq("is_preferred", true);
+
+  const { error } = await supabase
+    .from("supplier_product_prices")
+    .update({ is_preferred: true })
+    .eq("id", priceId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function dismissSupplierPriceReview(priceId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("supplier_product_prices")
+    .update({ needs_supplier_review: false })
+    .eq("id", priceId);
 
   if (error) throw new Error(error.message);
 

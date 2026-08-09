@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/request-user";
 import { signOut } from "@/lib/supabase/actions";
-import { LogOut, ChevronRight, Building2, KeyRound } from "lucide-react";
+import { LogOut, ChevronRight, Building2, KeyRound, Package2 } from "lucide-react";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -61,6 +60,22 @@ export default async function SettingsPage() {
             Business Settings
           </h2>
           <p className="text-sm text-neutral-500">Branding, quote details, labour rates</p>
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
+      </Link>
+
+      <Link
+        href="/materials"
+        className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+          <Package2 className="h-4.5 w-4.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+            Materials
+          </h2>
+          <p className="text-sm text-neutral-500">Vehicle stock, materials to order, suppliers</p>
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
       </Link>

@@ -1,16 +1,14 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/request-user";
 import { Sidebar } from "@/components/nav/sidebar";
 import { BottomNav } from "@/components/nav/bottom-nav";
 import { QuickActionButton } from "@/components/quick-action/quick-action-button";
 import { OfflinePhotoIndicator } from "@/components/offline-photo-indicator";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   if (!user) {
     redirect("/login");
@@ -19,7 +17,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-dvh w-full">
       <Suspense fallback={<SidebarFallback />}>
-        <SidebarWithProfile userId={user.id} fallbackEmail={user.email} />
+        <SidebarWithProfile userId={user.id} fallbackEmail={user.email ?? undefined} />
       </Suspense>
       <main className="min-w-0 flex-1 pt-[env(safe-area-inset-top)] pb-28 md:pb-8">
         <Suspense fallback={null}>{children}</Suspense>

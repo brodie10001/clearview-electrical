@@ -55,5 +55,21 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Forward the user this middleware already verified via a request header,
+  // so the shared layout and the pages that need identity (Dashboard,
+  // Settings) can read it instead of each calling auth.getUser() again --
+  // that call revalidates the session against Supabase's Auth server over
+  // the network, so doing it 2-3 times per navigation was pure duplicated
+  // latency on every single tab switch.
+  if (user) {
+    const headers = new Headers(request.headers);
+    headers.set("x-user-id", user.id);
+    if (user.email) headers.set("x-user-email", user.email);
+
+    const response = NextResponse.next({ request: { headers } });
+    supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+    return response;
+  }
+
   return supabaseResponse;
 }
