@@ -45,6 +45,21 @@ async function recalculateQuoteTotals(supabase: SupabaseServerClient, quoteId: s
     .eq("id", quoteId);
 }
 
+// Every mutation below is also hidden behind the Draft check in
+// quote-builder.tsx, but that's a UI affordance, not a security boundary --
+// Server Actions are reachable directly by anyone who can POST to them
+// (see Next.js's own guidance on treating every action as an untrusted
+// entry point). Without this, a sent/accepted/declined quote's line items
+// could still be mutated after the fact, which breaks the entire "the
+// customer's copy never silently changes" guarantee createNewQuoteVersion
+// exists to protect.
+async function assertQuoteIsDraft(supabase: SupabaseServerClient, quoteId: string) {
+  const { data: quote } = await supabase.from("quotes").select("status").eq("id", quoteId).single();
+  if (quote?.status !== "Draft") {
+    throw new Error("This quote is locked -- start a new version to make changes.");
+  }
+}
+
 function revalidateQuote(quoteId: string, jobId?: string) {
   revalidatePath(`/quotes/${quoteId}`);
   revalidatePath("/finances/quotes");
@@ -187,12 +202,14 @@ export async function markQuoteDeclined(quoteId: string, jobId: string, formData
 export async function updateQuoteNotes(quoteId: string, jobId: string, formData: FormData) {
   const notes = (formData.get("notes") as string) || null;
   const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
   await supabase.from("quotes").update({ notes }).eq("id", quoteId);
   revalidateQuote(quoteId, jobId);
 }
 
 export async function updateQuoteExpiry(quoteId: string, jobId: string, expiryDate: string | null) {
   const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
   await supabase.from("quotes").update({ expiry_date: expiryDate }).eq("id", quoteId);
   revalidateQuote(quoteId, jobId);
 }
@@ -203,6 +220,7 @@ export async function addLabourLine(quoteId: string, jobId: string, formData: Fo
   const description = (formData.get("description") as string) || null;
 
   const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
   const { data: rateType } = await supabase
     .from("labour_rate_types")
     .select("rate_per_hour")
@@ -232,6 +250,7 @@ export async function addLabourLine(quoteId: string, jobId: string, formData: Fo
 // existing quotes. source_catalogue_product_id is kept only for reporting.
 export async function addMaterialLine(quoteId: string, jobId: string, formData: FormData) {
   const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
   const catalogueProductId = formData.get("catalogue_product_id") as string | null;
   const quantity = Number(formData.get("quantity") || 1);
 
@@ -410,6 +429,7 @@ export async function updateLabourLine(
   const description = (formData.get("description") as string) || null;
 
   const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
   await supabase
     .from("quote_line_items")
     .update({ hours, rate_per_hour: ratePerHour, description, line_total: ratePerHour * hours })
@@ -432,6 +452,7 @@ export async function updateMaterialLine(
   const sellPrice = cost * (1 + markupPercent / 100);
 
   const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
   await supabase
     .from("quote_line_items")
     .update({
@@ -450,6 +471,7 @@ export async function updateMaterialLine(
 
 export async function deleteLine(lineId: string, quoteId: string, jobId: string) {
   const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
   await supabase.from("quote_line_items").delete().eq("id", lineId);
   await recalculateQuoteTotals(supabase, quoteId);
   revalidateQuote(quoteId, jobId);
