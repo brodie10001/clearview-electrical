@@ -33,6 +33,16 @@ export type JobStatus =
 
 export type JobOutcome = "cancelled" | "declined";
 
+export type SupplierImportTargetField =
+  | "supplier_sku"
+  | "material_name"
+  | "cost_price"
+  | "unit"
+  | "brand"
+  | "category";
+
+export type VehicleStockMovementType = "Add" | "Remove" | "Adjust" | "Restock";
+
 export type InvoiceStatus =
   | "Not Required"
   | "Draft"
@@ -532,10 +542,11 @@ export interface Database {
           generic_material_id: string;
           brand: string | null;
           product_name: string | null;
-          supplier_sku: string | null;
           cost_price: number;
           default_markup_percent: number | null;
           sell_price: number;
+          unit: string;
+          needs_category_review: boolean;
           is_preferred: boolean;
           is_custom: boolean;
           active: boolean;
@@ -552,6 +563,132 @@ export interface Database {
             columns: ["generic_material_id"];
             isOneToOne: false;
             referencedRelation: "generic_materials";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      suppliers: {
+        Row: {
+          id: string;
+          name: string;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["suppliers"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["suppliers"]["Row"]>;
+        Relationships: [];
+      };
+      supplier_product_prices: {
+        Row: {
+          id: string;
+          catalogue_product_id: string;
+          supplier_id: string;
+          supplier_sku: string | null;
+          cost_price: number;
+          needs_supplier_review: boolean;
+          last_updated: string;
+          is_preferred: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["supplier_product_prices"]["Row"]> & {
+          catalogue_product_id: string;
+          supplier_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["supplier_product_prices"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "supplier_product_prices_catalogue_product_id_fkey";
+            columns: ["catalogue_product_id"];
+            isOneToOne: false;
+            referencedRelation: "catalogue_products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "supplier_product_prices_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      supplier_import_mappings: {
+        Row: {
+          id: string;
+          supplier_id: string;
+          source_column_name: string;
+          target_field: SupplierImportTargetField;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["supplier_import_mappings"]["Row"]> & {
+          supplier_id: string;
+          source_column_name: string;
+          target_field: SupplierImportTargetField;
+        };
+        Update: Partial<Database["public"]["Tables"]["supplier_import_mappings"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "supplier_import_mappings_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      vehicle_stock: {
+        Row: {
+          id: string;
+          catalogue_product_id: string;
+          quantity_on_hand: number;
+          minimum_stock_level: number;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["vehicle_stock"]["Row"]> & {
+          catalogue_product_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["vehicle_stock"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_stock_catalogue_product_id_fkey";
+            columns: ["catalogue_product_id"];
+            isOneToOne: true;
+            referencedRelation: "catalogue_products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      vehicle_stock_movements: {
+        Row: {
+          id: string;
+          catalogue_product_id: string;
+          movement_type: VehicleStockMovementType;
+          quantity_change: number;
+          reason: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["vehicle_stock_movements"]["Row"]> & {
+          catalogue_product_id: string;
+          movement_type: VehicleStockMovementType;
+          quantity_change: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["vehicle_stock_movements"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_stock_movements_catalogue_product_id_fkey";
+            columns: ["catalogue_product_id"];
+            isOneToOne: false;
+            referencedRelation: "catalogue_products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicle_stock_movements_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Palette, Clock, Package, CalendarRange, ShieldCheck } from "lucide-react";
+import { Palette, Clock, Package, CalendarRange, ShieldCheck, Truck } from "lucide-react";
 import { BrandingForm } from "./branding-form";
 import { LabourRatesSection } from "./labour-rates-section";
 import { MaterialsCatalogueSection } from "./materials-catalogue-section";
 import { PaymentScheduleTemplatesSection } from "./payment-schedule-templates-section";
 import { TestTypesSection } from "./test-types-section";
 import { ComplianceDocumentTemplatesSection } from "./compliance-document-templates-section";
+import { SuppliersSection } from "./suppliers-section";
 import type {
   BusinessSettings,
   LabourRateType,
@@ -18,12 +19,15 @@ import type {
   PaymentScheduleStageData,
   TestTypeSettingsData,
   ComplianceDocumentTemplateSettingsData,
+  SupplierData,
+  SupplierProductPriceData,
 } from "./page";
 
 const TABS = [
   { key: "branding", label: "Branding & Details", icon: Palette },
   { key: "rates", label: "Labour Rates", icon: Clock },
   { key: "materials", label: "Materials Catalogue", icon: Package },
+  { key: "suppliers", label: "Suppliers", icon: Truck },
   { key: "schedules", label: "Payment Schedules", icon: CalendarRange },
   { key: "compliance", label: "Testing & Compliance", icon: ShieldCheck },
 ] as const;
@@ -39,6 +43,8 @@ export function BusinessSettingsTabs({
   paymentScheduleStages,
   testTypes,
   complianceDocumentTemplates,
+  suppliers,
+  supplierPrices,
   canEdit,
 }: {
   settings: BusinessSettings;
@@ -49,6 +55,8 @@ export function BusinessSettingsTabs({
   paymentScheduleStages: PaymentScheduleStageData[];
   testTypes: TestTypeSettingsData[];
   complianceDocumentTemplates: ComplianceDocumentTemplateSettingsData[];
+  suppliers: SupplierData[];
+  supplierPrices: SupplierProductPriceData[];
   canEdit: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("branding");
@@ -91,9 +99,14 @@ export function BusinessSettingsTabs({
           <MaterialsCatalogueSection
             materials={materials}
             products={products}
+            suppliers={suppliers}
+            supplierPrices={supplierPrices}
             defaultMarkupPercent={settings.default_material_markup_percent}
             canEdit={canEdit}
           />
+        ) : null}
+        {tab === "suppliers" ? (
+          <SuppliersSection suppliers={suppliers} canEdit={canEdit} />
         ) : null}
         {tab === "schedules" ? (
           <PaymentScheduleTemplatesSection

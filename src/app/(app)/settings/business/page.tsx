@@ -43,13 +43,31 @@ export interface CatalogueProductData {
   generic_material_id: string;
   brand: string | null;
   product_name: string | null;
-  supplier_sku: string | null;
   cost_price: number;
   default_markup_percent: number | null;
   sell_price: number;
+  unit: string;
+  needs_category_review: boolean;
   is_preferred: boolean;
   is_custom: boolean;
   active: boolean;
+}
+
+export interface SupplierData {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface SupplierProductPriceData {
+  id: string;
+  catalogue_product_id: string;
+  supplier_id: string;
+  supplier_sku: string | null;
+  cost_price: number;
+  needs_supplier_review: boolean;
+  last_updated: string;
+  is_preferred: boolean;
 }
 
 export interface PaymentScheduleTemplateData {
@@ -97,6 +115,8 @@ export default async function BusinessSettingsPage() {
     stagesRes,
     testTypesRes,
     complianceTemplatesRes,
+    suppliersRes,
+    supplierPricesRes,
   ] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user!.id).single(),
     supabase.from("business_settings").select("*").eq("id", true).single(),
@@ -114,7 +134,7 @@ export default async function BusinessSettingsPage() {
     supabase
       .from("catalogue_products")
       .select(
-        "id, generic_material_id, brand, product_name, supplier_sku, cost_price, default_markup_percent, sell_price, is_preferred, is_custom, active",
+        "id, generic_material_id, brand, product_name, cost_price, default_markup_percent, sell_price, unit, needs_category_review, is_preferred, is_custom, active",
       )
       .order("is_preferred", { ascending: false })
       .order("brand")
@@ -139,6 +159,14 @@ export default async function BusinessSettingsPage() {
       .select("id, name, category, field_schema, active")
       .order("name")
       .returns<ComplianceDocumentTemplateSettingsData[]>(),
+    supabase.from("suppliers").select("id, name, active").order("name").returns<SupplierData[]>(),
+    supabase
+      .from("supplier_product_prices")
+      .select(
+        "id, catalogue_product_id, supplier_id, supplier_sku, cost_price, needs_supplier_review, last_updated, is_preferred",
+      )
+      .order("is_preferred", { ascending: false })
+      .returns<SupplierProductPriceData[]>(),
   ]);
 
   const canEdit = profileRes.data?.role === "owner" || profileRes.data?.role === "admin";
@@ -165,6 +193,8 @@ export default async function BusinessSettingsPage() {
           paymentScheduleStages={stagesRes.data ?? []}
           testTypes={testTypesRes.data ?? []}
           complianceDocumentTemplates={complianceTemplatesRes.data ?? []}
+          suppliers={suppliersRes.data ?? []}
+          supplierPrices={supplierPricesRes.data ?? []}
           canEdit={canEdit}
         />
       ) : (
