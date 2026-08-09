@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/request-user";
 import { BusinessSettingsTabs } from "./business-settings-tabs";
 import type { CompanyFont, PaymentTerms, ComplianceFieldDef } from "@/types/database";
 
@@ -101,9 +102,7 @@ export interface ComplianceDocumentTemplateSettingsData {
 
 export default async function BusinessSettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   const [
     profileRes,

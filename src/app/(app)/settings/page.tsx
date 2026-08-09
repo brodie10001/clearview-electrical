@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/request-user";
 import { signOut } from "@/lib/supabase/actions";
 import { LogOut, ChevronRight, Building2, KeyRound, Package2 } from "lucide-react";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   const { data: profile } = await supabase
     .from("profiles")
