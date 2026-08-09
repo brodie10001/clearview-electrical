@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/nav/sidebar";
@@ -15,22 +16,43 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, email, role")
-    .eq("id", user.id)
-    .single();
-
-  const displayName = profile?.full_name || profile?.email || user.email || "You";
-  const role = profile?.role ?? "owner";
-
   return (
     <div className="flex min-h-dvh w-full">
-      <Sidebar displayName={displayName} role={role} />
-      <main className="min-w-0 flex-1 pb-28 md:pb-8">{children}</main>
+      <Suspense fallback={<SidebarFallback />}>
+        <SidebarWithProfile userId={user.id} fallbackEmail={user.email} />
+      </Suspense>
+      <main className="min-w-0 flex-1 pt-[env(safe-area-inset-top)] pb-28 md:pb-8">
+        <Suspense fallback={null}>{children}</Suspense>
+      </main>
       <BottomNav />
       <QuickActionButton />
       <OfflinePhotoIndicator />
     </div>
   );
+}
+
+function SidebarFallback() {
+  return (
+    <aside className="hidden w-60 shrink-0 border-r border-neutral-200 bg-white md:block dark:border-neutral-800 dark:bg-neutral-900" />
+  );
+}
+
+async function SidebarWithProfile({
+  userId,
+  fallbackEmail,
+}: {
+  userId: string;
+  fallbackEmail: string | undefined;
+}) {
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, email, role")
+    .eq("id", userId)
+    .single();
+
+  const displayName = profile?.full_name || profile?.email || fallbackEmail || "You";
+  const role = profile?.role ?? "owner";
+
+  return <Sidebar displayName={displayName} role={role} />;
 }
