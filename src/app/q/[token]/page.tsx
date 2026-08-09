@@ -50,17 +50,21 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const { token } = await params;
   const supabase = createServiceClient();
 
-  // Resolve the token to exactly one quote_id first -- every query below is
-  // scoped to that single id, never anything derived from the request
-  // beyond it.
+  // Resolve the token to exactly one quote_id (and, via it, the one
+  // business that quote belongs to) first -- every query below is scoped
+  // to those two ids, never anything derived from the request beyond them.
+  // This runs on the service client (no logged-in user, so no
+  // current_business_id() for RLS to key off), so business_id has to be
+  // threaded through explicitly rather than left to row-level security.
   const { data: tokenRow } = await supabase
     .from("quote_public_tokens")
-    .select("quote_id")
+    .select("quote_id, quotes(business_id)")
     .eq("token", token)
-    .maybeSingle();
+    .maybeSingle<{ quote_id: string; quotes: { business_id: string } | null }>();
 
-  if (!tokenRow) notFound();
+  if (!tokenRow || !tokenRow.quotes) notFound();
   const quoteId = tokenRow.quote_id;
+  const businessId = tokenRow.quotes.business_id;
 
   const [quoteRes, linesRes, settingsRes] = await Promise.all([
     supabase
@@ -80,7 +84,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
     supabase
       .from("business_settings")
       .select("trading_name, logo_url, logo_dark_url, primary_color, secondary_color, accent_color, company_font, quote_terms")
-      .eq("id", true)
+      .eq("business_id", businessId)
       .single()
       .returns<PublicSettings>(),
   ]);

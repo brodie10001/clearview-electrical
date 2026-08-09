@@ -31,7 +31,6 @@ async function recalculateQuoteTotals(supabase: SupabaseServerClient, quoteId: s
     const { data: settings } = await supabase
       .from("business_settings")
       .select("gst_registered")
-      .eq("id", true)
       .single();
     gstApplied = settings?.gst_registered ?? false;
   }
@@ -273,7 +272,6 @@ export async function addMaterialLine(quoteId: string, jobId: string, formData: 
     const { data: settings } = await supabase
       .from("business_settings")
       .select("default_material_markup_percent")
-      .eq("id", true)
       .single();
 
     const markupPercent =

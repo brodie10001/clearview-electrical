@@ -30,7 +30,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
+  const isAuthRoute =
+    request.nextUrl.pathname.startsWith("/login") ||
+    request.nextUrl.pathname.startsWith("/signup");
   // The public quote-sharing page and its PDF have no login -- they do their
   // own authorization via an unguessable token, scoped to a single quote.
   const isPublicQuoteRoute =

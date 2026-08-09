@@ -14,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clearview Electrical Group",
-  description: "Business management for Clearview Electrical Group",
+  title: "Tradeline",
+  description: "Business management for trades",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Clearview",
+    title: "Tradeline",
   },
   icons: {
     icon: [

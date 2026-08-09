@@ -16,16 +16,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
   const supabase = createServiceClient();
 
   // Same rule as the public page: resolve the token to exactly one quote_id
-  // first, then scope every query to it.
+  // (and its business_id, needed for the business_settings lookup below
+  // since this runs with no logged-in user for RLS to key off) first, then
+  // scope every query to it.
   const { data: tokenRow } = await supabase
     .from("quote_public_tokens")
-    .select("quote_id")
+    .select("quote_id, quotes(business_id)")
     .eq("token", token)
-    .maybeSingle();
+    .maybeSingle<{ quote_id: string; quotes: { business_id: string } | null }>();
 
-  if (!tokenRow) {
+  if (!tokenRow || !tokenRow.quotes) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const businessId = tokenRow.quotes.business_id;
 
   const [quoteRes, linesRes, settingsRes] = await Promise.all([
     supabase
@@ -49,7 +52,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ tok
       .select(
         "trading_name, abn, license_number, logo_url, logo_dark_url, primary_color, secondary_color, accent_color, company_font, quote_header, quote_terms",
       )
-      .eq("id", true)
+      .eq("business_id", businessId)
       .single()
       .returns<BusinessSettingsPdf>(),
   ]);

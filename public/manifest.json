@@ -1,7 +1,7 @@
 {
-  "name": "Clearview Electrical Group",
-  "short_name": "Clearview",
-  "description": "Business management for Clearview Electrical Group",
+  "name": "Tradeline",
+  "short_name": "Tradeline",
+  "description": "Business management for trades",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

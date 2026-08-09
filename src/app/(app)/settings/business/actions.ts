@@ -28,7 +28,7 @@ export async function updateBusinessSettings(formData: FormData) {
     default_payment_terms: (formData.get("default_payment_terms") as PaymentTerms) || "7 days",
   };
 
-  const { error } = await supabase.from("business_settings").update(values).eq("id", true);
+  const { error } = await supabase.from("business_settings").update(values);
 
   if (error) throw new Error(error.message);
 

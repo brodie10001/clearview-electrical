@@ -28,7 +28,6 @@ export default async function SupplierImportPage({
     supabase
       .from("business_settings")
       .select("default_material_markup_percent")
-      .eq("id", true)
       .single(),
   ]);
 

@@ -43,14 +43,16 @@ async function SidebarWithProfile({
   fallbackEmail: string | undefined;
 }) {
   const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, email, role")
-    .eq("id", userId)
-    .single();
+  const [profileRes, settingsRes, businessRes] = await Promise.all([
+    supabase.from("profiles").select("full_name, email, role, business_id").eq("id", userId).single(),
+    supabase.from("business_settings").select("trading_name").maybeSingle(),
+    supabase.from("businesses").select("name").maybeSingle(),
+  ]);
 
-  const displayName = profile?.full_name || profile?.email || fallbackEmail || "You";
-  const role = profile?.role ?? "owner";
+  const displayName =
+    profileRes.data?.full_name || profileRes.data?.email || fallbackEmail || "You";
+  const role = profileRes.data?.role ?? "owner";
+  const businessName = settingsRes.data?.trading_name || businessRes.data?.name || "Your Business";
 
-  return <Sidebar displayName={displayName} role={role} />;
+  return <Sidebar businessName={businessName} displayName={displayName} role={role} />;
 }

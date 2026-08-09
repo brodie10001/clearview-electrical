@@ -208,7 +208,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .select(
         "trading_name, abn, license_number, logo_url, logo_dark_url, primary_color, secondary_color, accent_color, company_font, invoice_footer",
       )
-      .eq("id", true)
       .single()
       .returns<BusinessSettingsPdf>(),
   ]);

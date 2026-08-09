@@ -77,7 +77,6 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
     supabase
       .from("business_settings")
       .select("default_material_markup_percent, trading_name")
-      .eq("id", true)
       .single(),
     supabase
       .from("quote_activity")

@@ -118,7 +118,7 @@ export default async function BusinessSettingsPage() {
     supplierPricesRes,
   ] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user!.id).single(),
-    supabase.from("business_settings").select("*").eq("id", true).single(),
+    supabase.from("business_settings").select("*").single(),
     supabase
       .from("labour_rate_types")
       .select("id, name, rate_per_hour, is_active")
