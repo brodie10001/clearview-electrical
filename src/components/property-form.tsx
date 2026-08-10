@@ -35,6 +35,8 @@ type PropertyFormProps =
 
 const initialInlineState: CreatePropertyInlineState = { error: null, property: null };
 
+const CREATE_NEW_CUSTOMER = "__create_new_customer__";
+
 // Same fields and the same underlying insert as the standalone /properties/new
 // page, but usable either as that full page (mode="page") or embedded in a
 // stacked dialog (mode="embedded", e.g. from the New Job flow) -- the only
@@ -60,7 +62,16 @@ export function PropertyForm(props: PropertyFormProps) {
           required
           className={inputClass}
           {...(embedded
-            ? { value: props.customerId, onChange: (e) => props.onCustomerIdChange(e.target.value) }
+            ? {
+                value: props.customerId,
+                onChange: (e) => {
+                  if (e.target.value === CREATE_NEW_CUSTOMER) {
+                    props.onCreateNewCustomer();
+                    return;
+                  }
+                  props.onCustomerIdChange(e.target.value);
+                },
+              }
             : { defaultValue: props.defaultCustomerId ?? "" })}
         >
           <option value="" disabled>
@@ -71,16 +82,9 @@ export function PropertyForm(props: PropertyFormProps) {
               {c.name}
             </option>
           ))}
+          {embedded ? <option value={CREATE_NEW_CUSTOMER}>+ Create new customer</option> : null}
         </select>
-        {embedded ? (
-          <button
-            type="button"
-            onClick={props.onCreateNewCustomer}
-            className="text-left text-xs font-medium text-amber-600 hover:underline"
-          >
-            + Create new customer
-          </button>
-        ) : (
+        {embedded ? null : (
           <p className="text-xs text-neutral-500">
             Don&apos;t see them?{" "}
             <Link href="/customers/new" className="text-amber-600 hover:underline">
