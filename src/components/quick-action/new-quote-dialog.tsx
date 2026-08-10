@@ -20,6 +20,7 @@ export function NewQuoteDialog({ open, onClose }: { open: boolean; onClose: () =
     supabase
       .from("jobs")
       .select("id, properties(address, customers(name))")
+      .eq("archived", false)
       .order("created_at", { ascending: false })
       .returns<JobOption[]>()
       .then(({ data }) => setJobs(data ?? []));

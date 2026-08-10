@@ -84,20 +84,23 @@ export default async function DashboardPage() {
   const [todayVisitsRes, openJobsRes, recentJobsRes, recentDocsRes, recentQuotesRes, notesRes] = await Promise.all([
     supabase
       .from("job_visits")
-      .select("id, start_time, jobs(id, job_status, properties(address), contacts(name))")
+      .select("id, start_time, jobs!inner(id, job_status, properties(address), contacts(name))")
       .eq("scheduled_date", today)
+      .eq("jobs.archived", false)
       .order("start_time", { ascending: true, nullsFirst: false })
       .returns<TodayVisitRow[]>(),
     supabase
       .from("jobs")
       .select("id, job_status, updated_at, properties(address)")
       .in("job_status", OPEN_STATUSES)
+      .eq("archived", false)
       .order("updated_at", { ascending: true })
       .limit(20)
       .returns<Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[]>(),
     supabase
       .from("jobs")
       .select("id, job_status, updated_at, properties(address)")
+      .eq("archived", false)
       .order("updated_at", { ascending: false })
       .limit(5)
       .returns<Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[]>(),

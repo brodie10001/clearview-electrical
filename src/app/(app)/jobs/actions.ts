@@ -49,6 +49,77 @@ export async function updateJobStatus(jobId: string, jobStatus: JobStatus) {
   revalidatePath("/");
 }
 
+function formatList(items: string[]) {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+export interface DeleteJobResult {
+  deleted: boolean;
+  blockedReason: string | null;
+}
+
+// Only ever hard-deletes the job row itself (job_visits cascade with it --
+// nothing else does) and never touches the linked customer/property. If the
+// job has any real record attached, deletion is refused outright rather
+// than silently destroying history -- the caller should offer archiveJob
+// instead. RLS (business_id = current_business_id()) already scopes every
+// query and the final delete, same as everywhere else in the app -- a job
+// belonging to another business simply won't be found.
+export async function deleteJob(jobId: string): Promise<DeleteJobResult> {
+  const supabase = await createClient();
+
+  const [jobRes, quotesRes, invoicesRes, testRecordsRes, complianceRes, documentsRes] =
+    await Promise.all([
+      supabase.from("jobs").select("job_status").eq("id", jobId).single(),
+      supabase.from("quotes").select("id").eq("job_id", jobId).limit(1),
+      // payments only ever exist via an invoice (payments.invoice_id is not
+      // null), so an invoices check already covers them -- no separate query.
+      supabase.from("invoices").select("id").eq("job_id", jobId).limit(1),
+      supabase.from("test_records").select("id").eq("job_id", jobId).limit(1),
+      supabase.from("compliance_documents").select("id").eq("job_id", jobId).limit(1),
+      supabase.from("documents").select("id").eq("job_id", jobId).limit(1),
+    ]);
+
+  if (!jobRes.data) {
+    // Not found (already deleted, or belongs to another business under
+    // RLS) -- nothing left to do.
+    return { deleted: false, blockedReason: null };
+  }
+
+  const reasons: string[] = [];
+  if ((quotesRes.data?.length ?? 0) > 0) reasons.push("a quote");
+  if ((invoicesRes.data?.length ?? 0) > 0) reasons.push("an invoice or payment");
+  if (jobRes.data.job_status === "Completed") reasons.push("a Completed status");
+  if ((testRecordsRes.data?.length ?? 0) > 0) reasons.push("test records");
+  if ((complianceRes.data?.length ?? 0) > 0) reasons.push("compliance documents");
+  if ((documentsRes.data?.length ?? 0) > 0) reasons.push("documents or photos");
+
+  if (reasons.length > 0) {
+    return {
+      deleted: false,
+      blockedReason: `This job has ${formatList(reasons)} attached, so it can't be permanently deleted.`,
+    };
+  }
+
+  const { error } = await supabase.from("jobs").delete().eq("id", jobId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/jobs");
+  revalidatePath("/");
+  return { deleted: true, blockedReason: null };
+}
+
+export async function archiveJob(jobId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("jobs").update({ archived: true }).eq("id", jobId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/jobs");
+  revalidatePath("/");
+}
+
 export async function createVisit(jobId: string, formData: FormData) {
   const scheduledDate = formData.get("scheduled_date") as string;
   const startTime = (formData.get("start_time") as string) || null;
