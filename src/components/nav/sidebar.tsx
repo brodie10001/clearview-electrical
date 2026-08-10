@@ -9,25 +9,23 @@ import { isNavItemActive } from "./is-active";
 import { signOut } from "@/lib/supabase/actions";
 
 interface SidebarProps {
+  businessName: string;
   displayName: string;
   role: string;
 }
 
-export function Sidebar({ displayName, role }: SidebarProps) {
+export function Sidebar({ businessName, displayName, role }: SidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 bg-white px-4 py-6 md:flex dark:border-neutral-800 dark:bg-neutral-900">
       <div className="mb-8 flex items-center gap-2.5 px-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500 text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
           <Zap className="h-5 w-5" fill="currentColor" />
         </div>
-        <div className="leading-tight">
-          <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">
-            Clearview
-          </p>
-          <p className="text-xs text-neutral-500">Electrical Group</p>
-        </div>
+        <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+          {businessName}
+        </p>
       </div>
 
       <nav className="flex flex-1 flex-col gap-1" aria-label="Primary">

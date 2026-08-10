@@ -50,8 +50,7 @@ export function LogoUploader({
 
     const { error: updateError } = await supabase
       .from("business_settings")
-      .update(buildUpdate(kind, publicUrlData.publicUrl))
-      .eq("id", true);
+      .update(buildUpdate(kind, publicUrlData.publicUrl));
 
     setBusy(false);
 

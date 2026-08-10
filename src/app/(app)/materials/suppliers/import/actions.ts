@@ -87,7 +87,7 @@ export async function commitSupplierImport(
       .eq("supplier_id", supplierId)
       .not("supplier_sku", "is", null)
       .returns<{ id: string; supplier_sku: string; catalogue_product_id: string; cost_price: number }[]>(),
-    supabase.from("business_settings").select("default_material_markup_percent").eq("id", true).single(),
+    supabase.from("business_settings").select("default_material_markup_percent").single(),
   ]);
 
   const existingBySku = new Map(

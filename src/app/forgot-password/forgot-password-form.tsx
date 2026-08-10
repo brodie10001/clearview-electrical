@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { Zap, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { PlatformLogo } from "@/components/platform-logo";
 import { requestPasswordReset } from "./actions";
 
 export function ForgotPasswordForm({ expired }: { expired: boolean }) {
@@ -15,8 +16,8 @@ export function ForgotPasswordForm({ expired }: { expired: boolean }) {
     <div className="flex min-h-dvh items-center justify-center bg-neutral-50 px-4 dark:bg-neutral-950">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white">
-            <Zap className="h-6 w-6" fill="currentColor" />
+          <div className="rounded-xl bg-white px-4 py-3">
+            <PlatformLogo className="h-9 w-auto" />
           </div>
           <h1 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
             Reset your password

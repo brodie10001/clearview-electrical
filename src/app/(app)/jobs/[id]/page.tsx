@@ -129,7 +129,7 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
       .select("id, template_id, label, percentage")
       .order("sort_order")
       .returns<TemplateStageOption[]>(),
-    supabase.from("business_settings").select("default_payment_terms").eq("id", true).single(),
+    supabase.from("business_settings").select("default_payment_terms").single(),
     getAcceptedQuote(supabase, id),
     supabase
       .from("job_compliance_status")

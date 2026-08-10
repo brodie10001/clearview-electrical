@@ -120,9 +120,22 @@ export type QuoteActivityType = "Sent" | "Viewed" | "Accepted" | "Declined";
 export interface Database {
   public: {
     Tables: {
+      businesses: {
+        Row: {
+          id: string;
+          name: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["businesses"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["businesses"]["Row"]>;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
+          business_id: string;
           full_name: string | null;
           email: string | null;
           phone: string | null;
@@ -134,10 +147,19 @@ export interface Database {
           id: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "profiles_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       customers: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           email: string | null;
@@ -155,6 +177,7 @@ export interface Database {
       };
       properties: {
         Row: {
+          business_id: string;
           id: string;
           customer_id: string;
           address: string;
@@ -182,6 +205,7 @@ export interface Database {
       };
       property_access: {
         Row: {
+          business_id: string;
           property_id: string;
           gate_code: string | null;
           alarm_instructions: string | null;
@@ -209,6 +233,7 @@ export interface Database {
       };
       property_electrical: {
         Row: {
+          business_id: string;
           property_id: string;
           switchboard_location: string | null;
           switchboard_brand: string | null;
@@ -244,6 +269,7 @@ export interface Database {
       };
       contacts: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           phone: string | null;
@@ -258,6 +284,7 @@ export interface Database {
       };
       property_contacts: {
         Row: {
+          business_id: string;
           id: string;
           property_id: string;
           contact_id: string;
@@ -288,6 +315,7 @@ export interface Database {
       };
       jobs: {
         Row: {
+          business_id: string;
           id: string;
           property_id: string;
           primary_contact_id: string | null;
@@ -320,6 +348,7 @@ export interface Database {
       };
       job_visits: {
         Row: {
+          business_id: string;
           id: string;
           job_id: string;
           scheduled_date: string;
@@ -355,6 +384,7 @@ export interface Database {
       };
       documents: {
         Row: {
+          business_id: string;
           id: string;
           property_id: string;
           job_id: string | null;
@@ -389,6 +419,7 @@ export interface Database {
       };
       personal_note_items: {
         Row: {
+          business_id: string;
           id: string;
           user_id: string;
           text: string;
@@ -404,7 +435,8 @@ export interface Database {
       };
       business_settings: {
         Row: {
-          id: boolean;
+          id: string;
+          business_id: string;
           trading_name: string | null;
           abn: string | null;
           license_number: string | null;
@@ -430,6 +462,7 @@ export interface Database {
       };
       labour_rate_types: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           rate_per_hour: number;
@@ -446,6 +479,7 @@ export interface Database {
       };
       quotes: {
         Row: {
+          business_id: string;
           id: string;
           job_id: string;
           quote_number: string;
@@ -476,6 +510,7 @@ export interface Database {
       };
       quote_line_items: {
         Row: {
+          business_id: string;
           id: string;
           quote_id: string;
           line_type: QuoteLineType;
@@ -523,6 +558,7 @@ export interface Database {
       };
       generic_materials: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           category: string;
@@ -538,6 +574,7 @@ export interface Database {
       };
       catalogue_products: {
         Row: {
+          business_id: string;
           id: string;
           generic_material_id: string;
           brand: string | null;
@@ -569,6 +606,7 @@ export interface Database {
       };
       suppliers: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           active: boolean;
@@ -582,6 +620,7 @@ export interface Database {
       };
       supplier_product_prices: {
         Row: {
+          business_id: string;
           id: string;
           catalogue_product_id: string;
           supplier_id: string;
@@ -616,6 +655,7 @@ export interface Database {
       };
       supplier_import_mappings: {
         Row: {
+          business_id: string;
           id: string;
           supplier_id: string;
           source_column_name: string;
@@ -640,6 +680,7 @@ export interface Database {
       };
       vehicle_stock: {
         Row: {
+          business_id: string;
           id: string;
           catalogue_product_id: string;
           quantity_on_hand: number;
@@ -662,6 +703,7 @@ export interface Database {
       };
       vehicle_stock_movements: {
         Row: {
+          business_id: string;
           id: string;
           catalogue_product_id: string;
           movement_type: VehicleStockMovementType;
@@ -695,6 +737,7 @@ export interface Database {
       };
       job_variations: {
         Row: {
+          business_id: string;
           id: string;
           job_id: string;
           description: string;
@@ -720,6 +763,7 @@ export interface Database {
       };
       payment_schedule_templates: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           created_at: string;
@@ -732,6 +776,7 @@ export interface Database {
       };
       payment_schedule_template_stages: {
         Row: {
+          business_id: string;
           id: string;
           template_id: string;
           label: string;
@@ -754,6 +799,7 @@ export interface Database {
       };
       invoices: {
         Row: {
+          business_id: string;
           id: string;
           job_id: string;
           invoice_number: string;
@@ -787,6 +833,7 @@ export interface Database {
       };
       payments: {
         Row: {
+          business_id: string;
           id: string;
           invoice_id: string;
           amount: number;
@@ -812,6 +859,7 @@ export interface Database {
       };
       quote_versions: {
         Row: {
+          business_id: string;
           id: string;
           quote_id: string;
           version_number: number;
@@ -836,6 +884,7 @@ export interface Database {
       };
       quote_public_tokens: {
         Row: {
+          business_id: string;
           id: string;
           quote_id: string;
           token: string;
@@ -858,6 +907,7 @@ export interface Database {
       };
       quote_activity: {
         Row: {
+          business_id: string;
           id: string;
           quote_id: string;
           event_type: QuoteActivityType;
@@ -881,6 +931,7 @@ export interface Database {
       };
       compliance_document_templates: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           category: string;
@@ -898,6 +949,7 @@ export interface Database {
       };
       compliance_documents: {
         Row: {
+          business_id: string;
           id: string;
           job_id: string;
           property_id: string;
@@ -941,6 +993,7 @@ export interface Database {
       };
       test_types: {
         Row: {
+          business_id: string;
           id: string;
           name: string;
           default_unit: string | null;
@@ -953,6 +1006,7 @@ export interface Database {
       };
       test_records: {
         Row: {
+          business_id: string;
           id: string;
           job_id: string;
           circuit_or_equipment: string;
@@ -1000,6 +1054,7 @@ export interface Database {
       };
       job_compliance_status: {
         Row: {
+          business_id: string;
           job_id: string;
           requires_testing: boolean;
           requires_certificate: boolean;
