@@ -12,6 +12,7 @@ import {
 } from "@/components/dashboard/recent-activity-widget";
 import { PersonalNotesWidget } from "@/components/dashboard/personal-notes-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
+import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { todayDateString } from "@/lib/format";
 import type { JobStatus } from "@/types/database";
 
@@ -81,7 +82,15 @@ export default async function DashboardPage() {
 
   const today = todayDateString();
 
-  const [todayVisitsRes, openJobsRes, recentJobsRes, recentDocsRes, recentQuotesRes, notesRes] = await Promise.all([
+  const [
+    todayVisitsRes,
+    openJobsRes,
+    recentJobsRes,
+    recentDocsRes,
+    recentQuotesRes,
+    notesRes,
+    businessRes,
+  ] = await Promise.all([
     supabase
       .from("job_visits")
       .select("id, start_time, jobs!inner(id, job_status, properties(address), contacts(name))")
@@ -140,6 +149,7 @@ export default async function DashboardPage() {
       .eq("user_id", user!.id)
       .order("is_checked", { ascending: true })
       .order("position", { ascending: true }),
+    supabase.from("businesses").select("onboarding_completed_at").single(),
   ]);
 
   const todayJobs: TodayJob[] = (todayVisitsRes.data ?? [])
@@ -191,6 +201,12 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col">
       <DashboardHeader firstName={firstName} />
+
+      {!businessRes.data?.onboarding_completed_at ? (
+        <div className="px-4 pt-4 sm:px-6 sm:pt-6">
+          <OnboardingBanner />
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2">
         <TodaysJobsWidget jobs={todayJobs} />

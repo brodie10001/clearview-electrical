@@ -169,6 +169,23 @@ export function BrandingForm({
           </p>
         </div>
 
+        <div className="flex max-w-xs flex-col gap-1.5">
+          <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+            Default quote validity (days)
+          </label>
+          <input
+            name="default_quote_validity_days"
+            type="number"
+            min="1"
+            defaultValue={settings.default_quote_validity_days ?? ""}
+            placeholder="No automatic expiry"
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+          />
+          <p className="text-xs text-neutral-500">
+            New quotes get an expiry date this many days out. Leave blank for no automatic expiry.
+          </p>
+        </div>
+
         <label className="flex items-center gap-2.5 rounded-lg border border-neutral-200 px-3 py-2.5 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
           <input
             type="checkbox"

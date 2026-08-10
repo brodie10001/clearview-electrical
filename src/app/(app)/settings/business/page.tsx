@@ -34,6 +34,7 @@ export interface BusinessSettings {
   bank_account_name: string | null;
   bank_account_number: string | null;
   payment_instructions: string | null;
+  default_quote_validity_days: number | null;
 }
 
 export interface LabourRateType {
