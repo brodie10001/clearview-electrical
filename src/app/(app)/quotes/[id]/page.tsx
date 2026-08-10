@@ -41,6 +41,20 @@ export interface QuoteLineItemData {
   labour_rate_types: { name: string } | null;
 }
 
+export interface QuoteServiceItemLineData {
+  id: string;
+  name: string;
+  customer_facing_description: string;
+  quantity: number;
+  unit_sell_price: number;
+  line_total: number;
+  labour_cost: number;
+  materials_cost: number;
+  consumables_cost: number;
+  estimated_profit: number;
+  estimated_margin_percent: number;
+}
+
 export interface ActiveLabourRateType {
   id: string;
   name: string;
@@ -51,40 +65,49 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
   const { id } = await params;
   const supabase = await createClient();
 
-  const [quoteRes, lineItemsRes, rateTypesRes, settingsRes, activityRes] = await Promise.all([
-    supabase
-      .from("quotes")
-      .select(
-        "id, job_id, quote_number, status, expiry_date, notes, version, subtotal, gst_amount, total, gst_applied, created_at, jobs(id, properties(id, address, customers(name)))",
-      )
-      .eq("id", id)
-      .single()
-      .returns<QuoteDetailData>(),
-    supabase
-      .from("quote_line_items")
-      .select(
-        "id, line_type, description, labour_rate_type_id, rate_per_hour, hours, cost, markup_percent, quantity, sell_price, line_total, labour_rate_types(name)",
-      )
-      .eq("quote_id", id)
-      .order("created_at", { ascending: true })
-      .returns<QuoteLineItemData[]>(),
-    supabase
-      .from("labour_rate_types")
-      .select("id, name, rate_per_hour")
-      .eq("is_active", true)
-      .order("sort_order")
-      .returns<ActiveLabourRateType[]>(),
-    supabase
-      .from("business_settings")
-      .select("default_material_markup_percent, trading_name")
-      .single(),
-    supabase
-      .from("quote_activity")
-      .select("id, event_type, note, created_at")
-      .eq("quote_id", id)
-      .order("created_at", { ascending: false })
-      .returns<QuoteActivityItem[]>(),
-  ]);
+  const [quoteRes, lineItemsRes, serviceItemLinesRes, rateTypesRes, settingsRes, activityRes] =
+    await Promise.all([
+      supabase
+        .from("quotes")
+        .select(
+          "id, job_id, quote_number, status, expiry_date, notes, version, subtotal, gst_amount, total, gst_applied, created_at, jobs(id, properties(id, address, customers(name)))",
+        )
+        .eq("id", id)
+        .single()
+        .returns<QuoteDetailData>(),
+      supabase
+        .from("quote_line_items")
+        .select(
+          "id, line_type, description, labour_rate_type_id, rate_per_hour, hours, cost, markup_percent, quantity, sell_price, line_total, labour_rate_types(name)",
+        )
+        .eq("quote_id", id)
+        .order("created_at", { ascending: true })
+        .returns<QuoteLineItemData[]>(),
+      supabase
+        .from("quote_service_item_lines")
+        .select(
+          "id, name, customer_facing_description, quantity, unit_sell_price, line_total, labour_cost, materials_cost, consumables_cost, estimated_profit, estimated_margin_percent",
+        )
+        .eq("quote_id", id)
+        .order("created_at", { ascending: true })
+        .returns<QuoteServiceItemLineData[]>(),
+      supabase
+        .from("labour_rate_types")
+        .select("id, name, rate_per_hour")
+        .eq("is_active", true)
+        .order("sort_order")
+        .returns<ActiveLabourRateType[]>(),
+      supabase
+        .from("business_settings")
+        .select("default_material_markup_percent, trading_name")
+        .single(),
+      supabase
+        .from("quote_activity")
+        .select("id, event_type, note, created_at")
+        .eq("quote_id", id)
+        .order("created_at", { ascending: false })
+        .returns<QuoteActivityItem[]>(),
+    ]);
 
   if (quoteRes.error || !quoteRes.data) notFound();
   const quote = quoteRes.data;
@@ -111,6 +134,7 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
       <QuoteBuilder
         quote={quote}
         lineItems={lineItemsRes.data ?? []}
+        serviceItemLines={serviceItemLinesRes.data ?? []}
         activeRateTypes={rateTypesRes.data ?? []}
         defaultMarkupPercent={settingsRes.data?.default_material_markup_percent ?? 30}
         tradingName={settingsRes.data?.trading_name || "your electrician"}

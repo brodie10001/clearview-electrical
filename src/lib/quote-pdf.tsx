@@ -39,6 +39,17 @@ export interface QuotePdfLine {
   labour_rate_types: { name: string } | null;
 }
 
+// Price Book lines render exactly like a material line -- customer-facing
+// description, qty × unit price = total -- and never show the internal cost
+// estimate (labour/materials/consumables/profit/margin) that lives
+// alongside this on the quote_service_item_lines row.
+export interface QuotePdfServiceLine {
+  customer_facing_description: string;
+  quantity: number;
+  unit_sell_price: number;
+  line_total: number;
+}
+
 export interface BusinessSettingsPdf {
   trading_name: string | null;
   abn: string | null;
@@ -206,10 +217,12 @@ function buildStyles(settings: BusinessSettingsPdf) {
 export function QuoteDocument({
   quote,
   lines,
+  serviceLines = [],
   settings,
 }: {
   quote: QuotePdfData;
   lines: QuotePdfLine[];
+  serviceLines?: QuotePdfServiceLine[];
   settings: BusinessSettingsPdf;
 }) {
   const property = quote.jobs?.properties;
@@ -321,6 +334,33 @@ export function QuoteDocument({
                 <Text style={{ ...styles.colQty, ...styles.tableCell }}>{line.quantity ?? 1}</Text>
                 <Text style={{ ...styles.colRate, ...styles.tableCell }}>
                   {money(line.sell_price ?? 0)}
+                </Text>
+                <Text style={{ ...styles.colTotal, ...styles.tableCell }}>{money(line.line_total)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {serviceLines.length > 0 ? (
+          <View style={styles.tableSection}>
+            <Text style={styles.tableSectionTitle}>Services</Text>
+            <View style={styles.tableHeader}>
+              <Text style={{ ...styles.colDescription, ...styles.tableHeaderCell }}>Description</Text>
+              <Text style={{ ...styles.colQty, ...styles.tableHeaderCell }}>Qty</Text>
+              <Text style={{ ...styles.colRate, ...styles.tableHeaderCell }}>Unit price</Text>
+              <Text style={{ ...styles.colTotal, ...styles.tableHeaderCell }}>Amount</Text>
+            </View>
+            {serviceLines.map((line, i) => (
+              <View
+                key={i}
+                style={i % 2 === 1 ? { ...styles.tableRow, ...styles.tableRowAlt } : styles.tableRow}
+              >
+                <Text style={{ ...styles.colDescription, ...styles.tableCell }}>
+                  {line.customer_facing_description}
+                </Text>
+                <Text style={{ ...styles.colQty, ...styles.tableCell }}>{line.quantity}</Text>
+                <Text style={{ ...styles.colRate, ...styles.tableCell }}>
+                  {money(line.unit_sell_price)}
                 </Text>
                 <Text style={{ ...styles.colTotal, ...styles.tableCell }}>{money(line.line_total)}</Text>
               </View>

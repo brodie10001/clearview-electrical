@@ -22,14 +22,21 @@ import {
   updateLabourLine,
   updateMaterialLine,
   deleteLine,
+  deleteServiceItemLine,
   createNewQuoteVersion,
   markQuoteAccepted,
   markQuoteDeclined,
 } from "../actions";
 import { AddMaterialDialog } from "./add-material-dialog";
+import { AddPriceBookItemDialog } from "./add-price-book-item-dialog";
 import { ShareQuoteDialog } from "./share-quote-dialog";
 import { QuoteActivityTimeline, type QuoteActivityItem } from "./quote-activity-timeline";
-import type { QuoteDetailData, QuoteLineItemData, ActiveLabourRateType } from "./page";
+import type {
+  QuoteDetailData,
+  QuoteLineItemData,
+  QuoteServiceItemLineData,
+  ActiveLabourRateType,
+} from "./page";
 
 const inputClass =
   "rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50";
@@ -41,6 +48,7 @@ function money(n: number) {
 export function QuoteBuilder({
   quote,
   lineItems,
+  serviceItemLines,
   activeRateTypes,
   defaultMarkupPercent,
   tradingName,
@@ -49,6 +57,7 @@ export function QuoteBuilder({
 }: {
   quote: QuoteDetailData;
   lineItems: QuoteLineItemData[];
+  serviceItemLines: QuoteServiceItemLineData[];
   activeRateTypes: ActiveLabourRateType[];
   defaultMarkupPercent: number;
   tradingName: string;
@@ -61,6 +70,7 @@ export function QuoteBuilder({
   const [notes, setNotes] = useState(quote.notes ?? "");
   const [addingLabour, setAddingLabour] = useState(false);
   const [addingMaterial, setAddingMaterial] = useState(false);
+  const [addingServiceItem, setAddingServiceItem] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [declining, setDeclining] = useState(false);
@@ -362,6 +372,50 @@ export function QuoteBuilder({
       </section>
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+          Price Book
+        </h2>
+        {serviceItemLines.length === 0 ? (
+          <p className="text-sm text-neutral-500">No Price Book items yet.</p>
+        ) : (
+          <ul className="mb-3 flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
+            {serviceItemLines.map((line) => (
+              <LineRow
+                key={line.id}
+                title={line.customer_facing_description}
+                subtitle={`${line.quantity} × ${money(line.unit_sell_price)}`}
+                total={line.line_total}
+                locked={locked}
+                onDelete={() =>
+                  startTransition(() =>
+                    deleteServiceItemLine(line.id, quote.id, quote.job_id).then(refresh),
+                  )
+                }
+              />
+            ))}
+          </ul>
+        )}
+
+        {!locked ? (
+          <button
+            onClick={() => setAddingServiceItem(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            <Plus className="h-4 w-4" /> Add Price Book item
+          </button>
+        ) : null}
+
+        {addingServiceItem ? (
+          <AddPriceBookItemDialog
+            onClose={() => setAddingServiceItem(false)}
+            quoteId={quote.id}
+            jobId={quote.job_id}
+            onAdded={refresh}
+          />
+        ) : null}
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="ml-auto flex w-full max-w-xs flex-col gap-1.5 text-sm">
           <div className="flex justify-between">
             <span className="text-neutral-500">Subtotal</span>
@@ -429,7 +483,7 @@ function LineRow({
   subtitle: string;
   total: number;
   locked: boolean;
-  onEdit: () => void;
+  onEdit?: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -446,13 +500,15 @@ function LineRow({
         </span>
         {!locked ? (
           <>
-            <button
-              onClick={onEdit}
-              className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-              aria-label="Edit line"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
+            {onEdit ? (
+              <button
+                onClick={onEdit}
+                className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                aria-label="Edit line"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
             <button
               onClick={onDelete}
               className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-red-600 dark:hover:bg-neutral-800"

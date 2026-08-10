@@ -448,3 +448,84 @@ export async function toggleComplianceDocumentTemplateActive(templateId: string,
 
   revalidatePath("/settings/business");
 }
+
+function priceBookItemValues(formData: FormData) {
+  const labourHoursRaw = formData.get("labour_allowance_hours") as string;
+  const consumablesRaw = formData.get("consumables_allowance") as string;
+  return {
+    name: formData.get("name") as string,
+    customer_facing_description: formData.get("customer_facing_description") as string,
+    category: formData.get("category") as string,
+    default_sell_price: Number(formData.get("default_sell_price") || 0),
+    labour_allowance_hours: labourHoursRaw ? Number(labourHoursRaw) : null,
+    labour_rate_type_id: (formData.get("labour_rate_type_id") as string) || null,
+    consumables_allowance: consumablesRaw ? Number(consumablesRaw) : null,
+  };
+}
+
+export async function createPriceBookItem(formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("price_book_items").insert(priceBookItemValues(formData));
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function updatePriceBookItem(itemId: string, formData: FormData) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("price_book_items")
+    .update(priceBookItemValues(formData))
+    .eq("id", itemId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function togglePriceBookItemActive(itemId: string, active: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("price_book_items").update({ active }).eq("id", itemId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function addPriceBookItemMaterial(itemId: string, formData: FormData) {
+  const catalogueProductId = formData.get("catalogue_product_id") as string;
+  const quantity = Number(formData.get("quantity") || 1);
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("price_book_item_materials").insert({
+    price_book_item_id: itemId,
+    catalogue_product_id: catalogueProductId,
+    quantity,
+  });
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function updatePriceBookItemMaterialQuantity(linkId: string, quantity: number) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("price_book_item_materials")
+    .update({ quantity })
+    .eq("id", linkId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+export async function removePriceBookItemMaterial(linkId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("price_book_item_materials").delete().eq("id", linkId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
