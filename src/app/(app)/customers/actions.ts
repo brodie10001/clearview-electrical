@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { PaymentTerms } from "@/types/database";
 
-export async function createCustomer(formData: FormData) {
+async function insertCustomer(formData: FormData) {
   const name = formData.get("name") as string;
   const email = (formData.get("email") as string) || null;
   const phone = (formData.get("phone") as string) || null;
@@ -23,8 +23,37 @@ export async function createCustomer(formData: FormData) {
     throw new Error(error?.message ?? "Failed to create customer");
   }
 
+  return { id: data.id as string, name };
+}
+
+export async function createCustomer(formData: FormData) {
+  const { id } = await insertCustomer(formData);
   revalidatePath("/customers");
-  redirect(`/customers/${data.id}`);
+  redirect(`/customers/${id}`);
+}
+
+export interface CreateCustomerInlineState {
+  error: string | null;
+  customer: { id: string; name: string } | null;
+}
+
+// Same insert as createCustomer, but for use inside a stacked dialog (e.g.
+// "+ Create new customer" from the property-creation sheet): returns the
+// new row instead of redirecting.
+export async function createCustomerInline(
+  _prevState: CreateCustomerInlineState,
+  formData: FormData,
+): Promise<CreateCustomerInlineState> {
+  try {
+    const customer = await insertCustomer(formData);
+    revalidatePath("/customers");
+    return { error: null, customer };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Failed to create customer",
+      customer: null,
+    };
+  }
 }
 
 export async function updateCustomer(customerId: string, formData: FormData) {

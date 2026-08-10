@@ -10,7 +10,7 @@ import type {
   PhaseType,
 } from "@/types/database";
 
-export async function createProperty(formData: FormData) {
+async function insertProperty(formData: FormData) {
   const customerId = formData.get("customer_id") as string;
   const address = formData.get("address") as string;
   const propertyType = formData.get("property_type") as PropertyType;
@@ -34,8 +34,38 @@ export async function createProperty(formData: FormData) {
     throw new Error(error?.message ?? "Failed to create property");
   }
 
+  return { id: data.id as string, address, customerId };
+}
+
+export async function createProperty(formData: FormData) {
+  const { id } = await insertProperty(formData);
   revalidatePath("/properties");
-  redirect(`/properties/${data.id}`);
+  redirect(`/properties/${id}`);
+}
+
+export interface CreatePropertyInlineState {
+  error: string | null;
+  property: { id: string; address: string; customerId: string } | null;
+}
+
+// Same insert as createProperty, but for use inside a stacked dialog (e.g.
+// "+ Create new property" from the New Job form): returns the new row
+// instead of redirecting, so the caller can auto-select it without leaving
+// the page it was opened from.
+export async function createPropertyInline(
+  _prevState: CreatePropertyInlineState,
+  formData: FormData,
+): Promise<CreatePropertyInlineState> {
+  try {
+    const property = await insertProperty(formData);
+    revalidatePath("/properties");
+    return { error: null, property };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "Failed to create property",
+      property: null,
+    };
+  }
 }
 
 export async function updatePropertyStatus(propertyId: string, status: PropertyStatus) {
