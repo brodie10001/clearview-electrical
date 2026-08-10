@@ -27,6 +27,13 @@ export interface BusinessSettings {
   quote_number_next: number;
   invoice_number_prefix: string;
   invoice_number_next: number;
+  business_email: string | null;
+  business_phone: string | null;
+  business_address: string | null;
+  bank_bsb: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  payment_instructions: string | null;
 }
 
 export interface LabourRateType {

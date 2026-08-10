@@ -26,6 +26,13 @@ export async function updateBusinessSettings(formData: FormData) {
     ),
     gst_registered: formData.get("gst_registered") === "on",
     default_payment_terms: (formData.get("default_payment_terms") as PaymentTerms) || "7 days",
+    business_email: (formData.get("business_email") as string) || null,
+    business_phone: (formData.get("business_phone") as string) || null,
+    business_address: (formData.get("business_address") as string) || null,
+    bank_bsb: (formData.get("bank_bsb") as string) || null,
+    bank_account_name: (formData.get("bank_account_name") as string) || null,
+    bank_account_number: (formData.get("bank_account_number") as string) || null,
+    payment_instructions: (formData.get("payment_instructions") as string) || null,
   };
 
   const { error } = await supabase.from("business_settings").update(values);
