@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Plus, CalendarDays } from "lucide-react";
+import { Plus, CalendarDays, Archive } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { JobStatusBadge, InvoiceStatusBadge } from "@/components/ui/status-badge";
-import { formatVisitDate, formatVisitTime, todayDateString } from "@/lib/format";
 import { clsx } from "clsx";
+import { todayDateString } from "@/lib/format";
+import { JobsList, type JobListRow } from "./jobs-list";
 import type { JobStatus, InvoiceStatus } from "@/types/database";
 
 const FILTERS = [
@@ -24,7 +24,7 @@ const OPEN_STATUSES: JobStatus[] = [
   "Waiting",
 ];
 
-interface JobListRow {
+interface JobRowFromDb {
   id: string;
   job_status: JobStatus;
   invoice_status: InvoiceStatus;
@@ -39,19 +39,21 @@ interface VisitLookupRow {
 }
 
 export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
-  const { filter: filterParam } = await searchParams;
+  const { filter: filterParam, archived: archivedParam } = await searchParams;
   const filter = typeof filterParam === "string" ? filterParam : "open";
+  const showArchived = archivedParam === "1";
 
   const supabase = await createClient();
   let query = supabase
     .from("jobs")
     .select("id, job_status, invoice_status, created_at, properties(address, customers(name))")
+    .eq("archived", showArchived)
     .order("created_at", { ascending: false });
 
   if (filter === "open") query = query.in("job_status", OPEN_STATUSES);
   if (filter === "completed") query = query.in("job_status", ["Completed", "Closed"]);
 
-  const { data: jobsData } = await query.returns<JobListRow[]>();
+  const { data: jobsData } = await query.returns<JobRowFromDb[]>();
   const jobs = jobsData ?? [];
 
   const jobIds = jobs.map((j) => j.id);
@@ -86,6 +88,23 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
     return b.created_at.localeCompare(a.created_at);
   });
 
+  const listRows: JobListRow[] = sortedJobs.map((job) => {
+    const nextVisit = nextVisitByJob.get(job.id);
+    return {
+      id: job.id,
+      job_status: job.job_status,
+      invoice_status: job.invoice_status,
+      address: job.properties?.address ?? "Unknown property",
+      customerName: job.properties?.customers?.name ?? null,
+      nextVisit: nextVisit
+        ? { scheduled_date: nextVisit.scheduled_date, start_time: nextVisit.start_time }
+        : null,
+    };
+  });
+
+  const archiveToggleParams = new URLSearchParams({ filter });
+  if (!showArchived) archiveToggleParams.set("archived", "1");
+
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
       <div className="flex items-center justify-between">
@@ -108,58 +127,39 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
         </div>
       </div>
 
-      <div className="flex gap-1.5">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.value}
-            href={`/jobs?filter=${f.value}`}
-            className={clsx(
-              "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
-              filter === f.value
-                ? "bg-neutral-900 text-white dark:bg-neutral-50 dark:text-neutral-900"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700",
-            )}
-          >
-            {f.label}
-          </Link>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1.5">
+          {FILTERS.map((f) => (
+            <Link
+              key={f.value}
+              href={`/jobs?filter=${f.value}${showArchived ? "&archived=1" : ""}`}
+              className={clsx(
+                "rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
+                filter === f.value
+                  ? "bg-neutral-900 text-white dark:bg-neutral-50 dark:text-neutral-900"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700",
+              )}
+            >
+              {f.label}
+            </Link>
+          ))}
+        </div>
+
+        <Link
+          href={`/jobs?${archiveToggleParams.toString()}`}
+          className={clsx(
+            "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+            showArchived
+              ? "bg-neutral-900 text-white dark:bg-neutral-50 dark:text-neutral-900"
+              : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700",
+          )}
+        >
+          <Archive className="h-3.5 w-3.5" />
+          {showArchived ? "Showing archived" : "Show archived"}
+        </Link>
       </div>
 
-      {sortedJobs.length === 0 ? (
-        <p className="py-10 text-center text-sm text-neutral-500">No jobs here yet.</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
-          {sortedJobs.map((job) => {
-            const nextVisit = nextVisitByJob.get(job.id);
-            return (
-              <li key={job.id}>
-                <Link
-                  href={`/jobs/${job.id}`}
-                  className="flex items-center justify-between gap-3 bg-white px-4 py-3.5 hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                      {job.properties?.address ?? "Unknown property"}
-                    </p>
-                    <p className="truncate text-xs text-neutral-500">
-                      {job.properties?.customers?.name ?? "No customer"}
-                      {nextVisit
-                        ? ` · ${formatVisitDate(nextVisit.scheduled_date)}${
-                            nextVisit.start_time ? ` ${formatVisitTime(nextVisit.start_time)}` : ""
-                          }`
-                        : ""}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <JobStatusBadge status={job.job_status} />
-                    <InvoiceStatusBadge status={job.invoice_status} />
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <JobsList jobs={listRows} />
     </div>
   );
 }

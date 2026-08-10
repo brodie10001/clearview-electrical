@@ -322,6 +322,7 @@ export interface Database {
           job_status: JobStatus;
           outcome: JobOutcome | null;
           invoice_status: InvoiceStatus;
+          archived: boolean;
           created_at: string;
           updated_at: string;
         };
