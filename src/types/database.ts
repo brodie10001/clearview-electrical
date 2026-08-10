@@ -117,6 +117,9 @@ export type VisitStatus = "Scheduled" | "In Progress" | "Completed" | "Cancelled
 
 export type QuoteActivityType = "Sent" | "Viewed" | "Accepted" | "Declined";
 
+export type FeedbackType = "Bug Report" | "Feature Request" | "General Feedback";
+export type FeedbackStatus = "New" | "Reviewed" | "Resolved";
+
 export interface Database {
   public: {
     Tables: {
@@ -142,6 +145,7 @@ export interface Database {
           phone: string | null;
           role: ProfileRole;
           active: boolean;
+          is_platform_admin: boolean;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["profiles"]["Row"]> & {
@@ -154,6 +158,44 @@ export interface Database {
             columns: ["business_id"];
             isOneToOne: false;
             referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      feedback: {
+        Row: {
+          id: string;
+          business_id: string;
+          user_id: string;
+          business_name: string;
+          submitted_by_name: string;
+          type: FeedbackType;
+          title: string;
+          description: string;
+          screenshot_url: string | null;
+          page_path: string | null;
+          status: FeedbackStatus;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["feedback"]["Row"]> & {
+          type: FeedbackType;
+          title: string;
+          description: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["feedback"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "feedback_business_id_fkey";
+            columns: ["business_id"];
+            isOneToOne: false;
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "feedback_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
