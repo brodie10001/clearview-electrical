@@ -33,6 +33,9 @@ export async function updateBusinessSettings(formData: FormData) {
     bank_account_name: (formData.get("bank_account_name") as string) || null,
     bank_account_number: (formData.get("bank_account_number") as string) || null,
     payment_instructions: (formData.get("payment_instructions") as string) || null,
+    default_quote_validity_days: formData.get("default_quote_validity_days")
+      ? Number(formData.get("default_quote_validity_days"))
+      : null,
   };
 
   const { error } = await supabase.from("business_settings").update(values);

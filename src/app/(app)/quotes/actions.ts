@@ -71,9 +71,20 @@ export async function createQuote(formData: FormData) {
   const jobId = formData.get("job_id") as string;
 
   const supabase = await createClient();
+
+  const { data: settings } = await supabase
+    .from("business_settings")
+    .select("default_quote_validity_days")
+    .single();
+
+  const validityDays = settings?.default_quote_validity_days;
+  const expiryDate = validityDays
+    ? new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    : null;
+
   const { data, error } = await supabase
     .from("quotes")
-    .insert({ job_id: jobId })
+    .insert({ job_id: jobId, expiry_date: expiryDate })
     .select("id")
     .single();
 
