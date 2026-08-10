@@ -529,3 +529,92 @@ export async function removePriceBookItemMaterial(linkId: string) {
 
   revalidatePath("/settings/business");
 }
+
+export interface UpdateNumberingResult {
+  error: string | null;
+}
+
+// Changing the starting number could collide with an already-issued number
+// if set too low -- find the highest existing suffix for this prefix and
+// require the new starting number to exceed it (not just check the single
+// candidate number, since gaps from deleted records could hide a collision
+// further along).
+function maxSuffix(values: string[], prefix: string) {
+  return values.reduce((max, value) => {
+    const n = Number(value.slice(prefix.length));
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 0);
+}
+
+async function highestExistingQuoteNumber(prefix: string) {
+  const supabase = await createClient();
+  const { data } = await supabase.from("quotes").select("quote_number").ilike("quote_number", `${prefix}%`);
+  return maxSuffix((data ?? []).map((row) => row.quote_number), prefix);
+}
+
+async function highestExistingInvoiceNumber(prefix: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("invoices")
+    .select("invoice_number")
+    .ilike("invoice_number", `${prefix}%`);
+  return maxSuffix((data ?? []).map((row) => row.invoice_number), prefix);
+}
+
+export async function updateQuoteNumbering(
+  _prevState: UpdateNumberingResult,
+  formData: FormData,
+): Promise<UpdateNumberingResult> {
+  const prefix = ((formData.get("quote_number_prefix") as string) || "").trim();
+  const nextNumber = Number(formData.get("quote_number_next"));
+
+  if (!prefix) return { error: "Prefix is required." };
+  if (!Number.isFinite(nextNumber) || nextNumber < 1) {
+    return { error: "Starting number must be at least 1." };
+  }
+
+  const maxExisting = await highestExistingQuoteNumber(prefix);
+  if (nextNumber <= maxExisting) {
+    return {
+      error: `That would collide with an existing quote (${prefix}${String(maxExisting).padStart(4, "0")} already exists) -- choose a higher starting number.`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("business_settings")
+    .update({ quote_number_prefix: prefix, quote_number_next: nextNumber });
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings/business");
+  return { error: null };
+}
+
+export async function updateInvoiceNumbering(
+  _prevState: UpdateNumberingResult,
+  formData: FormData,
+): Promise<UpdateNumberingResult> {
+  const prefix = ((formData.get("invoice_number_prefix") as string) || "").trim();
+  const nextNumber = Number(formData.get("invoice_number_next"));
+
+  if (!prefix) return { error: "Prefix is required." };
+  if (!Number.isFinite(nextNumber) || nextNumber < 1) {
+    return { error: "Starting number must be at least 1." };
+  }
+
+  const maxExisting = await highestExistingInvoiceNumber(prefix);
+  if (nextNumber <= maxExisting) {
+    return {
+      error: `That would collide with an existing invoice (${prefix}${String(maxExisting).padStart(4, "0")} already exists) -- choose a higher starting number.`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("business_settings")
+    .update({ invoice_number_prefix: prefix, invoice_number_next: nextNumber });
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings/business");
+  return { error: null };
+}

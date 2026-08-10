@@ -23,6 +23,10 @@ export interface BusinessSettings {
   default_material_markup_percent: number;
   gst_registered: boolean;
   default_payment_terms: PaymentTerms;
+  quote_number_prefix: string;
+  quote_number_next: number;
+  invoice_number_prefix: string;
+  invoice_number_next: number;
 }
 
 export interface LabourRateType {
