@@ -52,6 +52,55 @@ export function BrandingForm({
 
         <div>
           <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+            Business contact details
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field
+              label="Business email"
+              name="business_email"
+              defaultValue={settings.business_email}
+            />
+            <Field
+              label="Business phone"
+              name="business_phone"
+              defaultValue={settings.business_phone}
+            />
+            <Field
+              label="Business address"
+              name="business_address"
+              defaultValue={settings.business_address}
+            />
+          </div>
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+            Payment details
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Field label="BSB" name="bank_bsb" defaultValue={settings.bank_bsb} />
+            <Field
+              label="Account name"
+              name="bank_account_name"
+              defaultValue={settings.bank_account_name}
+            />
+            <Field
+              label="Account number"
+              name="bank_account_number"
+              defaultValue={settings.bank_account_number}
+            />
+          </div>
+          <div className="mt-4">
+            <Textarea
+              label="Payment instructions (optional)"
+              name="payment_instructions"
+              defaultValue={settings.payment_instructions}
+            />
+          </div>
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
             Brand colours
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
