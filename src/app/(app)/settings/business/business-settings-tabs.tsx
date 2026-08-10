@@ -4,6 +4,7 @@ import { useState } from "react";
 import { clsx } from "clsx";
 import { Palette, Clock, Package, CalendarRange, ShieldCheck, Truck, BookOpen } from "lucide-react";
 import { BrandingForm } from "./branding-form";
+import { NumberingSection } from "./numbering-section";
 import { LabourRatesSection } from "./labour-rates-section";
 import { MaterialsCatalogueSection } from "./materials-catalogue-section";
 import { PaymentScheduleTemplatesSection } from "./payment-schedule-templates-section";
@@ -99,7 +100,14 @@ export function BusinessSettingsTabs({
       </div>
 
       <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        {tab === "branding" ? <BrandingForm settings={settings} canEdit={canEdit} /> : null}
+        {tab === "branding" ? (
+          <div className="flex flex-col gap-8">
+            <BrandingForm settings={settings} canEdit={canEdit} />
+            <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">
+              <NumberingSection settings={settings} canEdit={canEdit} />
+            </div>
+          </div>
+        ) : null}
         {tab === "rates" ? (
           <LabourRatesSection rateTypes={rateTypes} canEdit={canEdit} />
         ) : null}

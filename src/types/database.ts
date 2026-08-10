@@ -455,6 +455,10 @@ export interface Database {
           gst_registered: boolean;
           default_payment_terms: PaymentTerms;
           quote_terms: string | null;
+          quote_number_prefix: string;
+          quote_number_next: number;
+          invoice_number_prefix: string;
+          invoice_number_next: number;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["business_settings"]["Row"]>;
