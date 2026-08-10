@@ -28,7 +28,10 @@ export async function updateBusinessSettings(formData: FormData) {
     default_payment_terms: (formData.get("default_payment_terms") as PaymentTerms) || "7 days",
   };
 
-  const { error } = await supabase.from("business_settings").update(values);
+  const { error } = await supabase
+    .from("business_settings")
+    .update(values)
+    .not("business_id", "is", null);
 
   if (error) throw new Error(error.message);
 
@@ -583,7 +586,8 @@ export async function updateQuoteNumbering(
   const supabase = await createClient();
   const { error } = await supabase
     .from("business_settings")
-    .update({ quote_number_prefix: prefix, quote_number_next: nextNumber });
+    .update({ quote_number_prefix: prefix, quote_number_next: nextNumber })
+    .not("business_id", "is", null);
   if (error) return { error: error.message };
 
   revalidatePath("/settings/business");
@@ -612,7 +616,8 @@ export async function updateInvoiceNumbering(
   const supabase = await createClient();
   const { error } = await supabase
     .from("business_settings")
-    .update({ invoice_number_prefix: prefix, invoice_number_next: nextNumber });
+    .update({ invoice_number_prefix: prefix, invoice_number_next: nextNumber })
+    .not("business_id", "is", null);
   if (error) return { error: error.message };
 
   revalidatePath("/settings/business");
