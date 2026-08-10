@@ -28,7 +28,8 @@ export async function updateOnboardingIdentity(
       business_email: (formData.get("business_email") as string) || null,
       business_phone: (formData.get("business_phone") as string) || null,
       business_address: (formData.get("business_address") as string) || null,
-    });
+    })
+    .not("business_id", "is", null);
 
   if (error) return { error: error.message };
   revalidatePath("/onboarding");
@@ -40,12 +41,15 @@ export async function updateOnboardingBranding(
   formData: FormData,
 ): Promise<OnboardingStepResult> {
   const supabase = await createClient();
-  const { error } = await supabase.from("business_settings").update({
-    primary_color: (formData.get("primary_color") as string) || "#f59e0b",
-    secondary_color: (formData.get("secondary_color") as string) || "#0a0a0a",
-    accent_color: (formData.get("accent_color") as string) || "#3b82f6",
-    company_font: (formData.get("company_font") as CompanyFont) || "Helvetica",
-  });
+  const { error } = await supabase
+    .from("business_settings")
+    .update({
+      primary_color: (formData.get("primary_color") as string) || "#f59e0b",
+      secondary_color: (formData.get("secondary_color") as string) || "#0a0a0a",
+      accent_color: (formData.get("accent_color") as string) || "#3b82f6",
+      company_font: (formData.get("company_font") as CompanyFont) || "Helvetica",
+    })
+    .not("business_id", "is", null);
 
   if (error) return { error: error.message };
   revalidatePath("/onboarding");
@@ -65,10 +69,13 @@ export async function updateOnboardingTaxPricing(
 
   const supabase = await createClient();
 
-  const { error: settingsError } = await supabase.from("business_settings").update({
-    gst_registered: formData.get("gst_registered") === "on",
-    default_material_markup_percent: Number(formData.get("default_material_markup_percent") || 0),
-  });
+  const { error: settingsError } = await supabase
+    .from("business_settings")
+    .update({
+      gst_registered: formData.get("gst_registered") === "on",
+      default_material_markup_percent: Number(formData.get("default_material_markup_percent") || 0),
+    })
+    .not("business_id", "is", null);
   if (settingsError) return { error: settingsError.message };
 
   if (standardRateTypeId) {
@@ -95,10 +102,13 @@ export async function updateOnboardingQuoteInvoiceDefaults(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("business_settings").update({
-    default_quote_validity_days: validityDays,
-    default_payment_terms: (formData.get("default_payment_terms") as PaymentTerms) || "7 days",
-  });
+  const { error } = await supabase
+    .from("business_settings")
+    .update({
+      default_quote_validity_days: validityDays,
+      default_payment_terms: (formData.get("default_payment_terms") as PaymentTerms) || "7 days",
+    })
+    .not("business_id", "is", null);
 
   if (error) return { error: error.message };
   revalidatePath("/onboarding");
@@ -110,12 +120,15 @@ export async function updateOnboardingPaymentDetails(
   formData: FormData,
 ): Promise<OnboardingStepResult> {
   const supabase = await createClient();
-  const { error } = await supabase.from("business_settings").update({
-    bank_bsb: (formData.get("bank_bsb") as string) || null,
-    bank_account_name: (formData.get("bank_account_name") as string) || null,
-    bank_account_number: (formData.get("bank_account_number") as string) || null,
-    payment_instructions: (formData.get("payment_instructions") as string) || null,
-  });
+  const { error } = await supabase
+    .from("business_settings")
+    .update({
+      bank_bsb: (formData.get("bank_bsb") as string) || null,
+      bank_account_name: (formData.get("bank_account_name") as string) || null,
+      bank_account_number: (formData.get("bank_account_number") as string) || null,
+      payment_instructions: (formData.get("payment_instructions") as string) || null,
+    })
+    .not("business_id", "is", null);
 
   if (error) return { error: error.message };
   revalidatePath("/onboarding");
@@ -126,7 +139,8 @@ export async function completeOnboarding() {
   const supabase = await createClient();
   const { error } = await supabase
     .from("businesses")
-    .update({ onboarding_completed_at: new Date().toISOString() });
+    .update({ onboarding_completed_at: new Date().toISOString() })
+    .not("id", "is", null);
 
   if (error) throw new Error(error.message);
 
