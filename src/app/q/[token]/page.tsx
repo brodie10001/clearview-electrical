@@ -31,6 +31,13 @@ interface PublicLine {
   labour_rate_types: { name: string } | null;
 }
 
+interface PublicServiceLine {
+  customer_facing_description: string;
+  quantity: number;
+  unit_sell_price: number;
+  line_total: number;
+}
+
 interface PublicSettings {
   trading_name: string | null;
   logo_url: string | null;
@@ -66,7 +73,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const quoteId = tokenRow.quote_id;
   const businessId = tokenRow.quotes.business_id;
 
-  const [quoteRes, linesRes, settingsRes] = await Promise.all([
+  const [quoteRes, linesRes, serviceLinesRes, settingsRes] = await Promise.all([
     supabase
       .from("quotes")
       .select(
@@ -82,6 +89,12 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
       .order("created_at", { ascending: true })
       .returns<PublicLine[]>(),
     supabase
+      .from("quote_service_item_lines")
+      .select("customer_facing_description, quantity, unit_sell_price, line_total")
+      .eq("quote_id", quoteId)
+      .order("created_at", { ascending: true })
+      .returns<PublicServiceLine[]>(),
+    supabase
       .from("business_settings")
       .select("trading_name, logo_url, logo_dark_url, primary_color, secondary_color, accent_color, company_font, quote_terms")
       .eq("business_id", businessId)
@@ -93,6 +106,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
 
   const quote = quoteRes.data;
   const lines = linesRes.data ?? [];
+  const serviceLines = serviceLinesRes.data ?? [];
   const settings = settingsRes.data ?? {
     trading_name: null,
     logo_url: null,
@@ -181,6 +195,18 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
                   description: l.description ?? "",
                   qty: String(l.quantity ?? 1),
                   rate: money(l.sell_price ?? 0),
+                  total: money(l.line_total),
+                }))}
+              />
+            ) : null}
+
+            {serviceLines.length > 0 ? (
+              <LineTable
+                title="Services"
+                rows={serviceLines.map((l) => ({
+                  description: l.customer_facing_description,
+                  qty: String(l.quantity),
+                  rate: money(l.unit_sell_price),
                   total: money(l.line_total),
                 }))}
               />

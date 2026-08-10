@@ -6,6 +6,7 @@ import {
   DEFAULT_PDF_SETTINGS,
   type QuotePdfData,
   type QuotePdfLine,
+  type QuotePdfServiceLine,
   type BusinessSettingsPdf,
 } from "@/lib/quote-pdf";
 
@@ -15,7 +16,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const supabase = await createClient();
 
-  const [quoteRes, linesRes, settingsRes] = await Promise.all([
+  const [quoteRes, linesRes, serviceLinesRes, settingsRes] = await Promise.all([
     supabase
       .from("quotes")
       .select(
@@ -33,6 +34,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .order("created_at", { ascending: true })
       .returns<QuotePdfLine[]>(),
     supabase
+      .from("quote_service_item_lines")
+      .select("customer_facing_description, quantity, unit_sell_price, line_total")
+      .eq("quote_id", id)
+      .order("created_at", { ascending: true })
+      .returns<QuotePdfServiceLine[]>(),
+    supabase
       .from("business_settings")
       .select(
         "trading_name, abn, license_number, logo_url, logo_dark_url, primary_color, secondary_color, accent_color, company_font, quote_header, quote_terms",
@@ -48,7 +55,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const pdfSettings: BusinessSettingsPdf = settingsRes.data ?? DEFAULT_PDF_SETTINGS;
 
   const buffer = await renderToBuffer(
-    <QuoteDocument quote={quoteRes.data} lines={linesRes.data ?? []} settings={pdfSettings} />,
+    <QuoteDocument
+      quote={quoteRes.data}
+      lines={linesRes.data ?? []}
+      serviceLines={serviceLinesRes.data ?? []}
+      settings={pdfSettings}
+    />,
   );
 
   return new NextResponse(new Uint8Array(buffer), {

@@ -100,6 +100,25 @@ export interface ComplianceDocumentTemplateSettingsData {
   active: boolean;
 }
 
+export interface PriceBookItemData {
+  id: string;
+  name: string;
+  customer_facing_description: string;
+  category: string;
+  default_sell_price: number;
+  labour_allowance_hours: number | null;
+  labour_rate_type_id: string | null;
+  consumables_allowance: number | null;
+  active: boolean;
+}
+
+export interface PriceBookItemMaterialData {
+  id: string;
+  price_book_item_id: string;
+  catalogue_product_id: string;
+  quantity: number;
+}
+
 export default async function BusinessSettingsPage() {
   const supabase = await createClient();
   const user = await getRequestUser();
@@ -116,6 +135,8 @@ export default async function BusinessSettingsPage() {
     complianceTemplatesRes,
     suppliersRes,
     supplierPricesRes,
+    priceBookItemsRes,
+    priceBookItemMaterialsRes,
   ] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user!.id).single(),
     supabase.from("business_settings").select("*").single(),
@@ -166,6 +187,18 @@ export default async function BusinessSettingsPage() {
       )
       .order("is_preferred", { ascending: false })
       .returns<SupplierProductPriceData[]>(),
+    supabase
+      .from("price_book_items")
+      .select(
+        "id, name, customer_facing_description, category, default_sell_price, labour_allowance_hours, labour_rate_type_id, consumables_allowance, active",
+      )
+      .order("category")
+      .order("name")
+      .returns<PriceBookItemData[]>(),
+    supabase
+      .from("price_book_item_materials")
+      .select("id, price_book_item_id, catalogue_product_id, quantity")
+      .returns<PriceBookItemMaterialData[]>(),
   ]);
 
   const canEdit = profileRes.data?.role === "owner" || profileRes.data?.role === "admin";
@@ -194,6 +227,8 @@ export default async function BusinessSettingsPage() {
           complianceDocumentTemplates={complianceTemplatesRes.data ?? []}
           suppliers={suppliersRes.data ?? []}
           supplierPrices={supplierPricesRes.data ?? []}
+          priceBookItems={priceBookItemsRes.data ?? []}
+          priceBookItemMaterials={priceBookItemMaterialsRes.data ?? []}
           canEdit={canEdit}
         />
       ) : (

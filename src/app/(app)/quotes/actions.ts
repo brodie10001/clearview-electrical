@@ -16,12 +16,14 @@ async function recalculateQuoteTotals(supabase: SupabaseServerClient, quoteId: s
     .eq("id", quoteId)
     .single();
 
-  const { data: lines } = await supabase
-    .from("quote_line_items")
-    .select("line_total")
-    .eq("quote_id", quoteId);
+  const [{ data: lines }, { data: serviceLines }] = await Promise.all([
+    supabase.from("quote_line_items").select("line_total").eq("quote_id", quoteId),
+    supabase.from("quote_service_item_lines").select("line_total").eq("quote_id", quoteId),
+  ]);
 
-  const subtotal = (lines ?? []).reduce((sum, line) => sum + Number(line.line_total), 0);
+  const subtotal =
+    (lines ?? []).reduce((sum, line) => sum + Number(line.line_total), 0) +
+    (serviceLines ?? []).reduce((sum, line) => sum + Number(line.line_total), 0);
 
   // While a quote is still a Draft, keep gst_applied in sync with the live
   // business setting. Once sent, freeze it so historical figures don't
@@ -139,9 +141,10 @@ export async function shareQuote(quoteId: string, jobId: string): Promise<{ toke
 export async function createNewQuoteVersion(quoteId: string, jobId: string) {
   const supabase = await createClient();
 
-  const [quoteRes, linesRes] = await Promise.all([
+  const [quoteRes, linesRes, serviceLinesRes] = await Promise.all([
     supabase.from("quotes").select("*").eq("id", quoteId).single(),
     supabase.from("quote_line_items").select("*").eq("quote_id", quoteId),
+    supabase.from("quote_service_item_lines").select("*").eq("quote_id", quoteId),
   ]);
 
   if (!quoteRes.data) throw new Error("Quote not found");
@@ -155,6 +158,7 @@ export async function createNewQuoteVersion(quoteId: string, jobId: string) {
     total: quoteRes.data.total,
     gst_applied: quoteRes.data.gst_applied,
     line_items: linesRes.data ?? [],
+    service_item_lines: serviceLinesRes.data ?? [],
   };
 
   const { error } = await supabase.from("quote_versions").insert({
@@ -471,6 +475,196 @@ export async function deleteLine(lineId: string, quoteId: string, jobId: string)
   const supabase = await createClient();
   await assertQuoteIsDraft(supabase, quoteId);
   await supabase.from("quote_line_items").delete().eq("id", lineId);
+  await recalculateQuoteTotals(supabase, quoteId);
+  revalidateQuote(quoteId, jobId);
+}
+
+export interface PriceBookSearchResult {
+  id: string;
+  name: string;
+  customerFacingDescription: string;
+  category: string;
+  defaultSellPrice: number;
+}
+
+export async function searchPriceBookItems(query: string): Promise<PriceBookSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("price_book_items")
+    .select("id, name, customer_facing_description, category, default_sell_price")
+    .eq("active", true)
+    .or(`name.ilike.%${trimmed}%,customer_facing_description.ilike.%${trimmed}%`)
+    .order("name");
+
+  return (data ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    customerFacingDescription: item.customer_facing_description,
+    category: item.category,
+    defaultSellPrice: item.default_sell_price,
+  }));
+}
+
+// "Frequently Used" is derived live from how often each Price Book item has
+// actually appeared on past quotes -- same approach as
+// getFrequentlyUsedProducts, not a manually maintained counter.
+export async function getFrequentlyUsedPriceBookItems(limit = 8): Promise<PriceBookSearchResult[]> {
+  const supabase = await createClient();
+  const { data: lines } = await supabase
+    .from("quote_service_item_lines")
+    .select("source_price_book_item_id")
+    .not("source_price_book_item_id", "is", null);
+
+  if (!lines || lines.length === 0) return [];
+
+  const counts = new Map<string, number>();
+  for (const line of lines) {
+    const id = line.source_price_book_item_id as string;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+
+  const topIds = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
+
+  if (topIds.length === 0) return [];
+
+  const { data: items } = await supabase
+    .from("price_book_items")
+    .select("id, name, customer_facing_description, category, default_sell_price")
+    .in("id", topIds)
+    .eq("active", true);
+
+  const byId = new Map((items ?? []).map((item) => [item.id, item]));
+
+  return topIds
+    .map((id) => byId.get(id))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      customerFacingDescription: item.customer_facing_description,
+      category: item.category,
+      defaultSellPrice: item.default_sell_price,
+    }));
+}
+
+export interface PriceBookEstimate {
+  name: string;
+  customerFacingDescription: string;
+  unitSellPrice: number;
+  quantity: number;
+  lineTotal: number;
+  labourCost: number;
+  materialsCost: number;
+  consumablesCost: number;
+  estimatedProfit: number;
+  estimatedMarginPercent: number;
+}
+
+// The live internal cost estimate for a Price Book item at a given quantity
+// -- used both for the Add Price Book Item review screen (before anything is
+// added) and, unchanged, as the permanent snapshot written onto the quote
+// line at add-time. Always computed from the item's *current* cost data, so
+// editing the item later never reaches back into quotes that already used
+// it -- only future adds see the change.
+export async function getPriceBookEstimate(
+  priceBookItemId: string,
+  quantity: number,
+): Promise<PriceBookEstimate> {
+  const supabase = await createClient();
+
+  const [{ data: item }, { data: materials }] = await Promise.all([
+    supabase
+      .from("price_book_items")
+      .select(
+        "name, customer_facing_description, default_sell_price, labour_allowance_hours, consumables_allowance, labour_rate_types(rate_per_hour)",
+      )
+      .eq("id", priceBookItemId)
+      .single<{
+        name: string;
+        customer_facing_description: string;
+        default_sell_price: number;
+        labour_allowance_hours: number | null;
+        consumables_allowance: number | null;
+        labour_rate_types: { rate_per_hour: number } | null;
+      }>(),
+    supabase
+      .from("price_book_item_materials")
+      .select("quantity, catalogue_products(cost_price)")
+      .eq("price_book_item_id", priceBookItemId)
+      .returns<{ quantity: number; catalogue_products: { cost_price: number } | null }[]>(),
+  ]);
+
+  if (!item) throw new Error("Price Book item not found");
+
+  const labourCostPerUnit =
+    (item.labour_allowance_hours ?? 0) * (item.labour_rate_types?.rate_per_hour ?? 0);
+  const materialsCostPerUnit = (materials ?? []).reduce(
+    (sum, m) => sum + m.quantity * (m.catalogue_products?.cost_price ?? 0),
+    0,
+  );
+  const consumablesCostPerUnit = item.consumables_allowance ?? 0;
+
+  const labourCost = labourCostPerUnit * quantity;
+  const materialsCost = materialsCostPerUnit * quantity;
+  const consumablesCost = consumablesCostPerUnit * quantity;
+  const lineTotal = quantity * item.default_sell_price;
+  const estimatedProfit = lineTotal - (labourCost + materialsCost + consumablesCost);
+  const estimatedMarginPercent = lineTotal > 0 ? (estimatedProfit / lineTotal) * 100 : 0;
+
+  return {
+    name: item.name,
+    customerFacingDescription: item.customer_facing_description,
+    unitSellPrice: item.default_sell_price,
+    quantity,
+    lineTotal,
+    labourCost,
+    materialsCost,
+    consumablesCost,
+    estimatedProfit,
+    estimatedMarginPercent,
+  };
+}
+
+// Writes the estimate computed above onto the quote as a permanent
+// snapshot -- see the comment on quote_service_item_lines in the migration.
+export async function addServiceItemLine(quoteId: string, jobId: string, formData: FormData) {
+  const priceBookItemId = formData.get("price_book_item_id") as string;
+  const quantity = Number(formData.get("quantity") || 1);
+
+  const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
+
+  const estimate = await getPriceBookEstimate(priceBookItemId, quantity);
+
+  await supabase.from("quote_service_item_lines").insert({
+    quote_id: quoteId,
+    source_price_book_item_id: priceBookItemId,
+    name: estimate.name,
+    customer_facing_description: estimate.customerFacingDescription,
+    quantity,
+    unit_sell_price: estimate.unitSellPrice,
+    line_total: estimate.lineTotal,
+    labour_cost: estimate.labourCost,
+    materials_cost: estimate.materialsCost,
+    consumables_cost: estimate.consumablesCost,
+    estimated_profit: estimate.estimatedProfit,
+    estimated_margin_percent: estimate.estimatedMarginPercent,
+  });
+
+  await recalculateQuoteTotals(supabase, quoteId);
+  revalidateQuote(quoteId, jobId);
+}
+
+export async function deleteServiceItemLine(lineId: string, quoteId: string, jobId: string) {
+  const supabase = await createClient();
+  await assertQuoteIsDraft(supabase, quoteId);
+  await supabase.from("quote_service_item_lines").delete().eq("id", lineId);
   await recalculateQuoteTotals(supabase, quoteId);
   revalidateQuote(quoteId, jobId);
 }

@@ -556,6 +556,110 @@ export interface Database {
           },
         ];
       };
+      price_book_items: {
+        Row: {
+          business_id: string;
+          id: string;
+          name: string;
+          customer_facing_description: string;
+          category: string;
+          default_sell_price: number;
+          labour_allowance_hours: number | null;
+          labour_rate_type_id: string | null;
+          consumables_allowance: number | null;
+          active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["price_book_items"]["Row"]> & {
+          name: string;
+          customer_facing_description: string;
+          category: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["price_book_items"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "price_book_items_labour_rate_type_id_fkey";
+            columns: ["labour_rate_type_id"];
+            isOneToOne: false;
+            referencedRelation: "labour_rate_types";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      price_book_item_materials: {
+        Row: {
+          business_id: string;
+          id: string;
+          price_book_item_id: string;
+          catalogue_product_id: string;
+          quantity: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["price_book_item_materials"]["Row"]> & {
+          price_book_item_id: string;
+          catalogue_product_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["price_book_item_materials"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "price_book_item_materials_price_book_item_id_fkey";
+            columns: ["price_book_item_id"];
+            isOneToOne: false;
+            referencedRelation: "price_book_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "price_book_item_materials_catalogue_product_id_fkey";
+            columns: ["catalogue_product_id"];
+            isOneToOne: false;
+            referencedRelation: "catalogue_products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      quote_service_item_lines: {
+        Row: {
+          business_id: string;
+          id: string;
+          quote_id: string;
+          source_price_book_item_id: string | null;
+          name: string;
+          customer_facing_description: string;
+          quantity: number;
+          unit_sell_price: number;
+          line_total: number;
+          labour_cost: number;
+          materials_cost: number;
+          consumables_cost: number;
+          estimated_profit: number;
+          estimated_margin_percent: number;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["quote_service_item_lines"]["Row"]> & {
+          quote_id: string;
+          name: string;
+          customer_facing_description: string;
+          unit_sell_price: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["quote_service_item_lines"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "quote_service_item_lines_quote_id_fkey";
+            columns: ["quote_id"];
+            isOneToOne: false;
+            referencedRelation: "quotes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "quote_service_item_lines_source_price_book_item_id_fkey";
+            columns: ["source_price_book_item_id"];
+            isOneToOne: false;
+            referencedRelation: "price_book_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       generic_materials: {
         Row: {
           business_id: string;
