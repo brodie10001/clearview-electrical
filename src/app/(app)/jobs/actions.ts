@@ -202,8 +202,12 @@ export async function updateVisitStatus(visitId: string, jobId: string, visitSta
   const supabase = await createClient();
   await supabase.from("job_visits").update({ visit_status: visitStatus }).eq("id", visitId);
 
-  // On Site -> Completed fires once every visit on the job is Completed --
-  // not just the one just updated, so re-check the whole set each time.
+  // Scheduled/On Site -> Completed fires once every visit on the job is
+  // Completed -- not just the one just updated, so re-check the whole set
+  // each time. Fires from either preceding status: a contractor can mark
+  // the final visit Completed without ever manually moving the job to On
+  // Site first, and that's still a real "all work done" transition, not a
+  // conflicting state to leave sitting as "Scheduled" forever.
   if (visitStatus === "Completed") {
     const { data: visits } = await supabase
       .from("job_visits")
@@ -215,7 +219,7 @@ export async function updateVisitStatus(visitId: string, jobId: string, visitSta
         .from("jobs")
         .update({ job_status: "Completed" })
         .eq("id", jobId)
-        .eq("job_status", "On Site")
+        .in("job_status", ["Scheduled", "On Site"])
         .is("outcome", null);
     }
   }

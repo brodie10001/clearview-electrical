@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { getJobStatusLabel } from "@/lib/job-status";
 import type {
   JobStatus,
   InvoiceStatus,
@@ -30,7 +31,15 @@ const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   "Written Off": "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
 };
 
-export function JobStatusBadge({ status }: { status: JobStatus }) {
+export function JobStatusBadge({
+  status,
+  invoiceStatus,
+}: {
+  status: JobStatus;
+  // Optional -- callers that don't have it fall back to the plain
+  // job_status label, same as before this existed.
+  invoiceStatus?: InvoiceStatus;
+}) {
   return (
     <span
       className={clsx(
@@ -38,7 +47,7 @@ export function JobStatusBadge({ status }: { status: JobStatus }) {
         JOB_STATUS_STYLES[status],
       )}
     >
-      {status}
+      {invoiceStatus ? getJobStatusLabel(status, invoiceStatus) : status}
     </span>
   );
 }

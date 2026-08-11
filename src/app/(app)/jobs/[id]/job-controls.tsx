@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateJobStatus } from "../actions";
 import { InvoiceStatusBadge } from "@/components/ui/status-badge";
+import { getJobStatusLabel } from "@/lib/job-status";
 import type { JobStatus, InvoiceStatus } from "@/types/database";
 
 const JOB_STATUSES: JobStatus[] = [
@@ -57,7 +58,13 @@ export function JobControls({
             </option>
           ))}
         </select>
-        {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
+        {error ? (
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        ) : status === "Completed" ? (
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            {getJobStatusLabel(status, invoiceStatus)}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
