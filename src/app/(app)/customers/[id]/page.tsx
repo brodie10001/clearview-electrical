@@ -17,7 +17,11 @@ export default async function CustomerDetailPage({ params }: PageProps<"/custome
   const supabase = await createClient();
 
   const [customerRes, propertiesRes] = await Promise.all([
-    supabase.from("customers").select("*").eq("id", id).single(),
+    supabase
+      .from("customers")
+      .select("id, name, email, phone, billing_address, notes, payment_terms")
+      .eq("id", id)
+      .single(),
     supabase
       .from("properties")
       .select("id, address, property_type, status")

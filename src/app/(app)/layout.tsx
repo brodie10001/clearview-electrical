@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { getRequestUser } from "@/lib/supabase/request-user";
+import { getCurrentProfile, getCurrentBusinessOverview } from "@/lib/data/current-business";
 import { Sidebar } from "@/components/nav/sidebar";
 import { BottomNav } from "@/components/nav/bottom-nav";
 import { QuickActionButton } from "@/components/quick-action/quick-action-button";
@@ -44,17 +44,14 @@ async function SidebarWithProfile({
   userId: string;
   fallbackEmail: string | undefined;
 }) {
-  const supabase = await createClient();
-  const [profileRes, settingsRes, businessRes] = await Promise.all([
-    supabase.from("profiles").select("full_name, email, role, business_id").eq("id", userId).single(),
-    supabase.from("business_settings").select("trading_name").maybeSingle(),
-    supabase.from("businesses").select("name").maybeSingle(),
+  const [profile, businessOverview] = await Promise.all([
+    getCurrentProfile(userId),
+    getCurrentBusinessOverview(),
   ]);
 
-  const displayName =
-    profileRes.data?.full_name || profileRes.data?.email || fallbackEmail || "You";
-  const role = profileRes.data?.role ?? "owner";
-  const businessName = settingsRes.data?.trading_name || businessRes.data?.name || "Your Business";
+  const displayName = profile?.full_name || profile?.email || fallbackEmail || "You";
+  const role = profile?.role ?? "owner";
+  const businessName = businessOverview.tradingName || businessOverview.businessName || "Your Business";
 
   return <Sidebar businessName={businessName} displayName={displayName} role={role} />;
 }

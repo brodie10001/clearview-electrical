@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getRequestUser } from "@/lib/supabase/request-user";
+import { getCurrentProfile, getCurrentBusinessOverview } from "@/lib/data/current-business";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { TodaysJobsWidget, type TodayJob } from "@/components/dashboard/todays-jobs-widget";
 import {
@@ -59,25 +60,20 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const user = await getRequestUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, email")
-    .eq("id", user!.id)
-    .single();
-
-  const firstName = (profile?.full_name || profile?.email || "there").split(" ")[0];
-
   const today = todayDateString();
 
   const [
+    profile,
+    businessOverview,
     todayVisitsRes,
     openJobsRes,
     recentJobsRes,
     recentDocsRes,
     recentQuotesRes,
     notesRes,
-    businessRes,
   ] = await Promise.all([
+    getCurrentProfile(user!.id),
+    getCurrentBusinessOverview(),
     supabase
       .from("job_visits")
       .select("id, start_time, jobs!inner(id, job_status, properties(address), contacts(name))")
@@ -135,8 +131,9 @@ export default async function DashboardPage() {
       .eq("user_id", user!.id)
       .order("is_checked", { ascending: true })
       .order("position", { ascending: true }),
-    supabase.from("businesses").select("onboarding_completed_at").single(),
   ]);
+
+  const firstName = (profile?.full_name || profile?.email || "there").split(" ")[0];
 
   const todayJobs: TodayJob[] = (todayVisitsRes.data ?? [])
     .filter((visit) => visit.jobs)
@@ -190,7 +187,7 @@ export default async function DashboardPage() {
     <div className="flex flex-col">
       <DashboardHeader firstName={firstName} />
 
-      {!businessRes.data?.onboarding_completed_at ? (
+      {!businessOverview.onboardingCompletedAt ? (
         <div className="px-4 pt-4 sm:px-6 sm:pt-6">
           <OnboardingBanner />
         </div>

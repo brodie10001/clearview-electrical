@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { Plus, Building2 } from "lucide-react";
+import { Plus, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { createClient } from "@/lib/supabase/server";
 import type { PropertyType, PropertyStatus } from "@/types/database";
+
+const PAGE_SIZE = 50;
 
 interface PropertyListRow {
   id: string;
@@ -19,16 +21,23 @@ const TYPE_STYLES: Record<PropertyType, string> = {
 };
 
 export default async function PropertiesPage({ searchParams }: PageProps<"/properties">) {
-  const { status: statusParam } = await searchParams;
+  const { status: statusParam, page: pageParam } = await searchParams;
   const status: PropertyStatus = statusParam === "archived" ? "archived" : "active";
+  const page = Math.max(1, Number(pageParam) || 1);
+  const from = (page - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
-  const { data: properties } = await supabase
+  const { data } = await supabase
     .from("properties")
     .select("id, address, property_type, status, customers(name)")
     .eq("status", status)
     .order("address")
+    .range(from, from + PAGE_SIZE)
     .returns<PropertyListRow[]>();
+
+  const rows = data ?? [];
+  const hasNext = rows.length > PAGE_SIZE;
+  const properties = rows.slice(0, PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
@@ -62,8 +71,10 @@ export default async function PropertiesPage({ searchParams }: PageProps<"/prope
         ))}
       </div>
 
-      {!properties || properties.length === 0 ? (
-        <p className="py-10 text-center text-sm text-neutral-500">No properties here yet.</p>
+      {properties.length === 0 ? (
+        <p className="py-10 text-center text-sm text-neutral-500">
+          {page > 1 ? "No more properties." : "No properties here yet."}
+        </p>
       ) : (
         <ul className="flex flex-col divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
           {properties.map((property) => (
@@ -96,6 +107,33 @@ export default async function PropertiesPage({ searchParams }: PageProps<"/prope
           ))}
         </ul>
       )}
+
+      {page > 1 || hasNext ? (
+        <div className="flex items-center justify-between">
+          <Link
+            href={`/properties?status=${status}&page=${page - 1}`}
+            aria-disabled={page <= 1}
+            className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium ${
+              page <= 1
+                ? "pointer-events-none text-neutral-300 dark:text-neutral-700"
+                : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            }`}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Link>
+          <Link
+            href={`/properties?status=${status}&page=${page + 1}`}
+            aria-disabled={!hasNext}
+            className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium ${
+              !hasNext
+                ? "pointer-events-none text-neutral-300 dark:text-neutral-700"
+                : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            }`}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

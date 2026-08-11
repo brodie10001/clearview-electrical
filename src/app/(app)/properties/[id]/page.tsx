@@ -153,8 +153,20 @@ export default async function PropertyDetailPage({ params }: PageProps<"/propert
         .eq("id", id)
         .single()
         .returns<PropertyDetailData>(),
-      supabase.from("property_access").select("*").eq("property_id", id).maybeSingle(),
-      supabase.from("property_electrical").select("*").eq("property_id", id).maybeSingle(),
+      supabase
+        .from("property_access")
+        .select(
+          "gate_code, alarm_instructions, lockbox_location, parking_instructions, pets_notes, hazards_notes, ceiling_access_notes, roof_access_notes, restricted_areas_notes",
+        )
+        .eq("property_id", id)
+        .maybeSingle(),
+      supabase
+        .from("property_electrical")
+        .select(
+          "switchboard_location, switchboard_brand, main_switch_rating, phase_type, consumer_mains_size, meter_number, solar_installed, battery_installed, generator_installed, surge_protection, ev_charger, existing_rcds, existing_rcbos, main_earth_location, men_location",
+        )
+        .eq("property_id", id)
+        .maybeSingle(),
       supabase
         .from("property_contacts")
         .select("id, role, contacts(id, name, phone, email)")

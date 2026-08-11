@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowLeft, Receipt } from "lucide-react";
+import { ArrowLeft, Receipt, ChevronLeft, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { createClient } from "@/lib/supabase/server";
 import { InvoiceRecordStatusBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/format";
 import type { InvoiceRecordStatus } from "@/types/database";
+
+const PAGE_SIZE = 50;
 
 const FILTERS = [
   { label: "All", value: "all" },
@@ -30,8 +32,10 @@ interface InvoiceListRow {
 export default async function FinancesInvoicesPage({
   searchParams,
 }: PageProps<"/finances/invoices">) {
-  const { status: statusParam } = await searchParams;
+  const { status: statusParam, page: pageParam } = await searchParams;
   const status = typeof statusParam === "string" ? statusParam : "all";
+  const page = Math.max(1, Number(pageParam) || 1);
+  const from = (page - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
   let query = supabase
@@ -39,11 +43,15 @@ export default async function FinancesInvoicesPage({
     .select(
       "id, invoice_number, stage_label, amount, due_date, status, jobs(properties(address, customers(name)))",
     )
-    .order("due_date", { ascending: false });
+    .order("due_date", { ascending: false })
+    .range(from, from + PAGE_SIZE);
 
   if (status !== "all") query = query.eq("status", status as InvoiceRecordStatus);
 
-  const { data: invoices } = await query.returns<InvoiceListRow[]>();
+  const { data } = await query.returns<InvoiceListRow[]>();
+  const rows = data ?? [];
+  const hasNext = rows.length > PAGE_SIZE;
+  const invoices = rows.slice(0, PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
@@ -74,8 +82,10 @@ export default async function FinancesInvoicesPage({
         ))}
       </div>
 
-      {!invoices || invoices.length === 0 ? (
-        <p className="py-10 text-center text-sm text-neutral-500">No invoices here yet.</p>
+      {invoices.length === 0 ? (
+        <p className="py-10 text-center text-sm text-neutral-500">
+          {page > 1 ? "No more invoices." : "No invoices here yet."}
+        </p>
       ) : (
         <ul className="flex flex-col divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
           {invoices.map((invoice) => (
@@ -109,6 +119,33 @@ export default async function FinancesInvoicesPage({
           ))}
         </ul>
       )}
+
+      {page > 1 || hasNext ? (
+        <div className="flex items-center justify-between">
+          <Link
+            href={`/finances/invoices?status=${status}&page=${page - 1}`}
+            aria-disabled={page <= 1}
+            className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium ${
+              page <= 1
+                ? "pointer-events-none text-neutral-300 dark:text-neutral-700"
+                : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            }`}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Link>
+          <Link
+            href={`/finances/invoices?status=${status}&page=${page + 1}`}
+            aria-disabled={!hasNext}
+            className={`flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium ${
+              !hasNext
+                ? "pointer-events-none text-neutral-300 dark:text-neutral-700"
+                : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            }`}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
