@@ -135,6 +135,28 @@ export async function updateInvoiceStatus(
 ) {
   const supabase = await createClient();
   await supabase.from("invoices").update({ status }).eq("id", invoiceId);
+
+  // Marking an invoice "Paid" is a distinct action from recording a payment,
+  // but the two must never drift apart -- an invoice flagged Paid with no
+  // payment behind it is exactly what made Payments Received silently
+  // diverge from Revenue Invoiced. Auto-record the remaining balance as a
+  // payment so the two stay consistent, the same way recordPayment() would.
+  if (status === "Paid") {
+    const [{ data: invoice }, { data: payments }] = await Promise.all([
+      supabase.from("invoices").select("amount").eq("id", invoiceId).single(),
+      supabase.from("payments").select("amount").eq("invoice_id", invoiceId),
+    ]);
+    const paidToDate = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
+    const balance = Math.round(((invoice?.amount ?? 0) - paidToDate) * 100) / 100;
+    if (balance > 0) {
+      await supabase.from("payments").insert({
+        invoice_id: invoiceId,
+        amount: balance,
+        notes: "Auto-recorded: invoice marked Paid",
+      });
+    }
+  }
+
   revalidateInvoice(invoiceId, jobId);
 }
 
