@@ -22,6 +22,7 @@ const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
 interface JobRow {
   id: string;
   job_status: TodayJob["job_status"];
+  invoice_status: InvoiceStatus;
   updated_at: string;
   properties: { address: string } | null;
   contacts: { name: string } | null;
@@ -39,7 +40,7 @@ interface TodayVisitRow {
 }
 
 function selectStalledJobs(
-  jobs: Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[],
+  jobs: Pick<JobRow, "id" | "job_status" | "invoice_status" | "updated_at" | "properties">[],
 ): StalledJob[] {
   const now = Date.now();
   return jobs
