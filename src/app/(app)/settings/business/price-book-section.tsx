@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Pencil, X, Trash2 } from "lucide-react";
 import { clsx } from "clsx";
+import { NumericInput } from "@/components/ui/numeric-input";
 import {
   createPriceBookItem,
   updatePriceBookItem,
@@ -279,14 +280,13 @@ function PriceBookItemForm({
 
       <div className="flex flex-col gap-1 sm:w-40">
         <label className="text-xs font-medium text-neutral-500">Sell price</label>
-        <input
+        <NumericInput
           name="default_sell_price"
-          type="number"
-          step="0.01"
-          min="0"
+          step={0.01}
+          min={0}
           required
           value={sellPrice}
-          onChange={(e) => setSellPrice(Number(e.target.value) || 0)}
+          onChange={setSellPrice}
           className={inputClass}
         />
       </div>

@@ -10,6 +10,7 @@ import {
   deletePayment,
 } from "../actions";
 import { InvoiceRecordStatusBadge } from "@/components/ui/status-badge";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { PAYMENT_TERMS_OPTIONS, dueDateFromTerms } from "@/lib/payment-terms";
 import { formatDate } from "@/lib/format";
 import type { InvoiceDetailData, PaymentData } from "./page";
@@ -270,27 +271,25 @@ export function InvoiceBuilder({
             {amountType === "percentage" ? (
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-neutral-500">Percentage</label>
-                <input
+                <NumericInput
                   name="percentage"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
+                  step={0.1}
+                  min={0}
+                  max={100}
                   value={percentage}
-                  onChange={(e) => setPercentage(Number(e.target.value) || 0)}
+                  onChange={setPercentage}
                   className={inputClass}
                 />
               </div>
             ) : null}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium text-neutral-500">Amount</label>
-              <input
+              <NumericInput
                 name="amount"
-                type="number"
-                step="0.01"
-                min="0"
+                step={0.01}
+                min={0}
                 value={amount}
-                onChange={(e) => setAmount(Number(e.target.value) || 0)}
+                onChange={setAmount}
                 required
                 className={inputClass}
               />
