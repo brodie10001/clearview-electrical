@@ -14,16 +14,9 @@ import { PersonalNotesWidget } from "@/components/dashboard/personal-notes-widge
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { todayDateString } from "@/lib/format";
-import type { JobStatus } from "@/types/database";
+import { isJobOpen } from "@/lib/job-status";
+import type { JobStatus, InvoiceStatus } from "@/types/database";
 
-const OPEN_STATUSES: JobStatus[] = [
-  "New",
-  "Quoting",
-  "Awaiting Approval",
-  "Ready to Schedule",
-  "Scheduled",
-  "On Site",
-];
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
 
 interface JobRow {
@@ -50,6 +43,7 @@ function selectStalledJobs(
 ): StalledJob[] {
   const now = Date.now();
   return jobs
+    .filter((job) => isJobOpen(job.job_status, job.invoice_status))
     .filter((job) => now - new Date(job.updated_at).getTime() > STALE_AFTER_MS)
     .slice(0, 5)
     .map((job) => ({
@@ -92,12 +86,11 @@ export default async function DashboardPage() {
       .returns<TodayVisitRow[]>(),
     supabase
       .from("jobs")
-      .select("id, job_status, updated_at, properties(address)")
-      .in("job_status", OPEN_STATUSES)
+      .select("id, job_status, invoice_status, updated_at, properties(address)")
       .eq("archived", false)
       .order("updated_at", { ascending: true })
-      .limit(20)
-      .returns<Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[]>(),
+      .limit(50)
+      .returns<Pick<JobRow, "id" | "job_status" | "invoice_status" | "updated_at" | "properties">[]>(),
     supabase
       .from("jobs")
       .select("id, job_status, updated_at, properties(address)")
@@ -186,9 +179,11 @@ export default async function DashboardPage() {
     href: `/quotes/${quote.id}`,
   }));
 
+  // Display limit only -- doesn't touch any underlying history, just how
+  // many of the merged, newest-first events the widget shows.
   const recentActivity = [...jobActivity, ...docActivity, ...quoteActivity]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 6);
+    .slice(0, 5);
 
   return (
     <div className="flex flex-col">
