@@ -21,6 +21,13 @@ import type { InvoiceRecordStatus, InvoiceAmountType, PaymentTerms } from "@/typ
 const INVOICE_STATUSES: InvoiceRecordStatus[] = ["Draft", "Sent", "Overdue", "Void", "Written Off"];
 const DERIVED_STATUSES = new Set<InvoiceRecordStatus>(["Paid", "Partially Paid"]);
 
+// payments.method stays a plain text column (existing free-text historical
+// rows are untouched) -- this just constrains what new entries submit,
+// picking from consistent values for reporting later, with "Other" as an
+// escape hatch for anything unlisted.
+const PAYMENT_METHOD_OPTIONS = ["Bank Transfer", "Cash", "Card", "Other"] as const;
+type PaymentMethodOption = (typeof PAYMENT_METHOD_OPTIONS)[number];
+
 const inputClass =
   "rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50";
 
@@ -56,6 +63,8 @@ export function InvoiceBuilder({
   const [issueDate, setIssueDate] = useState(invoice.issue_date);
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerms>(invoice.payment_terms);
   const [addingPayment, setAddingPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodOption>("Bank Transfer");
+  const [otherMethod, setOtherMethod] = useState("");
 
   const paidToDate = payments.reduce((sum, p) => sum + p.amount, 0);
   const balance = invoice.amount - paidToDate;
@@ -169,11 +178,16 @@ export function InvoiceBuilder({
         {addingPayment ? (
           <form
             action={async (formData) => {
+              if (paymentMethod === "Other") {
+                formData.set("method", otherMethod.trim() || "Other");
+              }
               await recordPayment(invoice.id, invoice.job_id, formData);
               setAddingPayment(false);
+              setPaymentMethod("Bank Transfer");
+              setOtherMethod("");
               refresh();
             }}
-            className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700 sm:flex-row sm:items-end"
+            className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700 sm:flex-row sm:items-end sm:flex-wrap"
           >
             <div className="flex w-28 flex-col gap-1">
               <label className="text-xs font-medium text-neutral-500">Amount</label>
@@ -192,9 +206,31 @@ export function InvoiceBuilder({
               <input name="paid_date" type="date" defaultValue={today} className={inputClass} />
             </div>
             <div className="flex flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Method (optional)</label>
-              <input name="method" placeholder="e.g. Bank transfer" className={inputClass} />
+              <label className="text-xs font-medium text-neutral-500">Method</label>
+              <select
+                name="method"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethodOption)}
+                className={inputClass}
+              >
+                {PAYMENT_METHOD_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </div>
+            {paymentMethod === "Other" ? (
+              <div className="flex flex-1 flex-col gap-1">
+                <label className="text-xs font-medium text-neutral-500">Specify method</label>
+                <input
+                  value={otherMethod}
+                  onChange={(e) => setOtherMethod(e.target.value)}
+                  placeholder="e.g. Cheque"
+                  className={inputClass}
+                />
+              </div>
+            ) : null}
             <div className="flex flex-1 flex-col gap-1">
               <label className="text-xs font-medium text-neutral-500">Notes (optional)</label>
               <input name="notes" className={inputClass} />
@@ -208,7 +244,11 @@ export function InvoiceBuilder({
               </button>
               <button
                 type="button"
-                onClick={() => setAddingPayment(false)}
+                onClick={() => {
+                  setAddingPayment(false);
+                  setPaymentMethod("Bank Transfer");
+                  setOtherMethod("");
+                }}
                 className="rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
                 Cancel
