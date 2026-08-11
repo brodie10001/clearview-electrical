@@ -171,7 +171,7 @@ function JobRow({ job, onRequestDelete }: { job: JobListRow; onRequestDelete: ()
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <JobStatusBadge status={job.job_status} />
+          <JobStatusBadge status={job.job_status} invoiceStatus={job.invoice_status} />
           <InvoiceStatusBadge status={job.invoice_status} />
         </div>
       </Link>
