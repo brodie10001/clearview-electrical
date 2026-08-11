@@ -20,7 +20,7 @@ export function FeedbackButton() {
         onClick={() => setOpen(true)}
         aria-label="Send feedback"
         title="Send feedback"
-        className="fixed top-[calc(env(safe-area-inset-top)+0.75rem)] right-3 z-40 flex h-9 w-9 items-center justify-center rounded-full bg-white text-neutral-500 shadow-lg transition-colors hover:text-neutral-900 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+        className="fixed top-[calc(env(safe-area-inset-top)+0.75rem)] right-3 z-40 flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg transition-colors hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
       >
         <MessageSquarePlus className="h-4.5 w-4.5" />
       </button>
