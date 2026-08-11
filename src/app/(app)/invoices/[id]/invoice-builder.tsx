@@ -9,20 +9,16 @@ import {
   recordPayment,
   deletePayment,
 } from "../actions";
+import { InvoiceRecordStatusBadge } from "@/components/ui/status-badge";
 import { PAYMENT_TERMS_OPTIONS, dueDateFromTerms } from "@/lib/payment-terms";
 import { formatDate } from "@/lib/format";
 import type { InvoiceDetailData, PaymentData } from "./page";
 import type { InvoiceRecordStatus, InvoiceAmountType, PaymentTerms } from "@/types/database";
 
-const INVOICE_STATUSES: InvoiceRecordStatus[] = [
-  "Draft",
-  "Sent",
-  "Partially Paid",
-  "Paid",
-  "Overdue",
-  "Void",
-  "Written Off",
-];
+// Paid/Partially Paid are derived live from payments (see
+// MANUALLY_SETTABLE_STATUSES in invoices/actions.ts) -- not offered here.
+const INVOICE_STATUSES: InvoiceRecordStatus[] = ["Draft", "Sent", "Overdue", "Void", "Written Off"];
+const DERIVED_STATUSES = new Set<InvoiceRecordStatus>(["Paid", "Partially Paid"]);
 
 const inputClass =
   "rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50";
@@ -42,6 +38,17 @@ export function InvoiceBuilder({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [status, setStatus] = useState(invoice.status);
+  // Paid/Partially Paid can change underneath this component purely from
+  // payment records changing (the DB trigger derives them, no direct set
+  // here) -- resync local state whenever a fresh invoice.status arrives via
+  // router.refresh(), same pattern as JobsList syncing to a new prop.
+  const [syncedStatus, setSyncedStatus] = useState(invoice.status);
+  if (invoice.status !== syncedStatus) {
+    setSyncedStatus(invoice.status);
+    setStatus(invoice.status);
+  }
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [amountType, setAmountType] = useState<InvoiceAmountType>(invoice.amount_type);
   const [percentage, setPercentage] = useState(invoice.percentage ?? 0);
   const [amount, setAmount] = useState(invoice.amount);
@@ -62,20 +69,39 @@ export function InvoiceBuilder({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-neutral-500">Status</label>
-            <select
-              value={invoice.status}
-              onChange={(e) => {
-                const value = e.target.value as InvoiceRecordStatus;
-                startTransition(() => updateInvoiceStatus(invoice.id, invoice.job_id, value).then(refresh));
-              }}
-              className={inputClass}
-            >
-              {INVOICE_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            {DERIVED_STATUSES.has(status) ? (
+              <div className="flex h-[38px] items-center gap-1.5">
+                <InvoiceRecordStatusBadge status={status} />
+                <span className="text-xs text-neutral-400">from payments</span>
+              </div>
+            ) : (
+              <select
+                value={status}
+                onChange={(e) => {
+                  const value = e.target.value as InvoiceRecordStatus;
+                  const previous = status;
+                  setStatus(value);
+                  setStatusError(null);
+                  startTransition(async () => {
+                    try {
+                      await updateInvoiceStatus(invoice.id, invoice.job_id, value);
+                      refresh();
+                    } catch (err) {
+                      setStatus(previous);
+                      setStatusError(err instanceof Error ? err.message : "Failed to update status.");
+                    }
+                  });
+                }}
+                className={inputClass}
+              >
+                {INVOICE_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            )}
+            {statusError ? <p className="text-xs text-red-600 dark:text-red-400">{statusError}</p> : null}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -94,6 +120,108 @@ export function InvoiceBuilder({
             </a>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">Payments</h2>
+        {payments.length === 0 ? (
+          <p className="mb-3 text-sm text-neutral-500">No payments recorded yet.</p>
+        ) : (
+          <ul className="mb-3 flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
+            {payments.map((payment) => (
+              <li key={payment.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                    {money(payment.amount)}
+                  </p>
+                  <p className="truncate text-xs text-neutral-500">
+                    {formatDate(payment.paid_date)}
+                    {payment.method ? ` · ${payment.method}` : ""}
+                    {payment.notes ? ` · ${payment.notes}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    startTransition(() =>
+                      deletePayment(payment.id, invoice.id, invoice.job_id).then(refresh),
+                    )
+                  }
+                  className="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-red-600 dark:hover:bg-neutral-800"
+                  aria-label="Delete payment"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mb-3 flex justify-between text-sm">
+          <span className="text-neutral-500">Paid to date</span>
+          <span className="font-medium text-neutral-900 dark:text-neutral-50">{money(paidToDate)}</span>
+        </div>
+        <div className="mb-3 flex justify-between text-sm">
+          <span className="text-neutral-500">Balance</span>
+          <span className="font-medium text-neutral-900 dark:text-neutral-50">{money(balance)}</span>
+        </div>
+
+        {addingPayment ? (
+          <form
+            action={async (formData) => {
+              await recordPayment(invoice.id, invoice.job_id, formData);
+              setAddingPayment(false);
+              refresh();
+            }}
+            className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700 sm:flex-row sm:items-end"
+          >
+            <div className="flex w-28 flex-col gap-1">
+              <label className="text-xs font-medium text-neutral-500">Amount</label>
+              <input
+                name="amount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                defaultValue={balance > 0 ? balance.toFixed(2) : undefined}
+                required
+                className={inputClass}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-neutral-500">Date</label>
+              <input name="paid_date" type="date" defaultValue={today} className={inputClass} />
+            </div>
+            <div className="flex flex-1 flex-col gap-1">
+              <label className="text-xs font-medium text-neutral-500">Method (optional)</label>
+              <input name="method" placeholder="e.g. Bank transfer" className={inputClass} />
+            </div>
+            <div className="flex flex-1 flex-col gap-1">
+              <label className="text-xs font-medium text-neutral-500">Notes (optional)</label>
+              <input name="notes" className={inputClass} />
+            </div>
+            <div className="flex gap-1">
+              <button
+                type="submit"
+                className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddingPayment(false)}
+                className="rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            onClick={() => setAddingPayment(true)}
+            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            Record payment
+          </button>
+        )}
       </section>
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
@@ -211,108 +339,6 @@ export function InvoiceBuilder({
             Save changes
           </button>
         </form>
-      </section>
-
-      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">Payments</h2>
-        {payments.length === 0 ? (
-          <p className="mb-3 text-sm text-neutral-500">No payments recorded yet.</p>
-        ) : (
-          <ul className="mb-3 flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-            {payments.map((payment) => (
-              <li key={payment.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                    {money(payment.amount)}
-                  </p>
-                  <p className="truncate text-xs text-neutral-500">
-                    {formatDate(payment.paid_date)}
-                    {payment.method ? ` · ${payment.method}` : ""}
-                    {payment.notes ? ` · ${payment.notes}` : ""}
-                  </p>
-                </div>
-                <button
-                  onClick={() =>
-                    startTransition(() =>
-                      deletePayment(payment.id, invoice.id, invoice.job_id).then(refresh),
-                    )
-                  }
-                  className="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-red-600 dark:hover:bg-neutral-800"
-                  aria-label="Delete payment"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="mb-3 flex justify-between text-sm">
-          <span className="text-neutral-500">Paid to date</span>
-          <span className="font-medium text-neutral-900 dark:text-neutral-50">{money(paidToDate)}</span>
-        </div>
-        <div className="mb-3 flex justify-between text-sm">
-          <span className="text-neutral-500">Balance</span>
-          <span className="font-medium text-neutral-900 dark:text-neutral-50">{money(balance)}</span>
-        </div>
-
-        {addingPayment ? (
-          <form
-            action={async (formData) => {
-              await recordPayment(invoice.id, invoice.job_id, formData);
-              setAddingPayment(false);
-              refresh();
-            }}
-            className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700 sm:flex-row sm:items-end"
-          >
-            <div className="flex w-28 flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Amount</label>
-              <input
-                name="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                defaultValue={balance > 0 ? balance.toFixed(2) : undefined}
-                required
-                className={inputClass}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Date</label>
-              <input name="paid_date" type="date" defaultValue={today} className={inputClass} />
-            </div>
-            <div className="flex flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Method (optional)</label>
-              <input name="method" placeholder="e.g. Bank transfer" className={inputClass} />
-            </div>
-            <div className="flex flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-neutral-500">Notes (optional)</label>
-              <input name="notes" className={inputClass} />
-            </div>
-            <div className="flex gap-1">
-              <button
-                type="submit"
-                className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddingPayment(false)}
-                className="rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button
-            onClick={() => setAddingPayment(true)}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          >
-            Record payment
-          </button>
-        )}
       </section>
     </div>
   );
