@@ -128,11 +128,31 @@ export async function updateInvoice(invoiceId: string, jobId: string, formData: 
   revalidateInvoice(invoiceId, jobId);
 }
 
+// Paid and Partially Paid are derived live from actual payment records (see
+// recompute_invoice_status in the invoices migration, triggered on every
+// payments change) -- never a manual, independent choice. Draft/Sent/
+// Overdue/Void/Written Off stay deliberate, manual states.
+const MANUALLY_SETTABLE_STATUSES = new Set<InvoiceRecordStatus>([
+  "Draft",
+  "Sent",
+  "Overdue",
+  "Void",
+  "Written Off",
+]);
+
 export async function updateInvoiceStatus(
   invoiceId: string,
   jobId: string,
   status: InvoiceRecordStatus,
 ) {
+  // Same "never trust the client" reasoning as assertQuoteIsDraft in
+  // quotes/actions.ts -- Server Actions are reachable directly by anyone who
+  // can POST to them, so this can't rely on the dropdown simply not
+  // offering the derived statuses as options.
+  if (!MANUALLY_SETTABLE_STATUSES.has(status)) {
+    throw new Error(`${status} is derived from recorded payments and can't be set manually.`);
+  }
+
   const supabase = await createClient();
   await supabase.from("invoices").update({ status }).eq("id", invoiceId);
   revalidateInvoice(invoiceId, jobId);

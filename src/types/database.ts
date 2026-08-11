@@ -24,10 +24,7 @@ export type JobStatus =
   | "Awaiting Approval"
   | "Ready to Schedule"
   | "Scheduled"
-  | "Travelling"
   | "On Site"
-  | "On Hold"
-  | "Waiting"
   | "Completed"
   | "Closed";
 
@@ -777,6 +774,66 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["suppliers"]["Row"]>;
         Relationships: [];
+      };
+      expense_categories: {
+        Row: {
+          business_id: string;
+          id: string;
+          name: string;
+          is_default: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["expense_categories"]["Row"]> & {
+          name: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["expense_categories"]["Row"]>;
+        Relationships: [];
+      };
+      expenses: {
+        Row: {
+          business_id: string;
+          id: string;
+          date: string;
+          description: string;
+          amount: number;
+          gst_included: boolean;
+          gst_amount: number;
+          category_id: string;
+          supplier_id: string | null;
+          job_id: string | null;
+          receipt_url: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["expenses"]["Row"]> & {
+          description: string;
+          amount: number;
+          category_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["expenses"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "expenses_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "expense_categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expenses_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expenses_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       supplier_product_prices: {
         Row: {

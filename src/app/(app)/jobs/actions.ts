@@ -43,6 +43,20 @@ export async function createJob(formData: FormData) {
 
 export async function updateJobStatus(jobId: string, jobStatus: JobStatus) {
   const supabase = await createClient();
+
+  // Closing is the one manual transition with a real guard: an outstanding
+  // invoice must never get buried by flipping the job to Closed.
+  if (jobStatus === "Closed") {
+    const { data: job } = await supabase
+      .from("jobs")
+      .select("invoice_status")
+      .eq("id", jobId)
+      .single();
+    if (job && job.invoice_status !== "Paid" && job.invoice_status !== "Not Required") {
+      throw new Error("Can't close -- invoice still outstanding.");
+    }
+  }
+
   await supabase.from("jobs").update({ job_status: jobStatus }).eq("id", jobId);
   revalidatePath(`/jobs/${jobId}`);
   revalidatePath("/jobs");
@@ -139,6 +153,22 @@ export async function createVisit(jobId: string, formData: FormData) {
 
   if (error) throw new Error(error.message);
 
+  // Ready to Schedule -> Scheduled fires only the first time a job gets a
+  // visit -- same atomic-conditional-update pattern used for quote-driven
+  // job status transitions (see quotes/actions.ts).
+  const { count: visitCount } = await supabase
+    .from("job_visits")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+  if (visitCount === 1) {
+    await supabase
+      .from("jobs")
+      .update({ job_status: "Scheduled" })
+      .eq("id", jobId)
+      .eq("job_status", "Ready to Schedule")
+      .is("outcome", null);
+  }
+
   revalidatePath(`/jobs/${jobId}`);
   revalidateSchedule();
 }
@@ -171,6 +201,29 @@ export async function updateVisit(visitId: string, jobId: string, formData: Form
 export async function updateVisitStatus(visitId: string, jobId: string, visitStatus: VisitStatus) {
   const supabase = await createClient();
   await supabase.from("job_visits").update({ visit_status: visitStatus }).eq("id", visitId);
+
+  // Scheduled/On Site -> Completed fires once every visit on the job is
+  // Completed -- not just the one just updated, so re-check the whole set
+  // each time. Fires from either preceding status: a contractor can mark
+  // the final visit Completed without ever manually moving the job to On
+  // Site first, and that's still a real "all work done" transition, not a
+  // conflicting state to leave sitting as "Scheduled" forever.
+  if (visitStatus === "Completed") {
+    const { data: visits } = await supabase
+      .from("job_visits")
+      .select("visit_status")
+      .eq("job_id", jobId);
+    const allCompleted = (visits ?? []).every((v) => v.visit_status === "Completed");
+    if (allCompleted) {
+      await supabase
+        .from("jobs")
+        .update({ job_status: "Completed" })
+        .eq("id", jobId)
+        .in("job_status", ["Scheduled", "On Site"])
+        .is("outcome", null);
+    }
+  }
+
   revalidatePath(`/jobs/${jobId}`);
   revalidateSchedule();
 }

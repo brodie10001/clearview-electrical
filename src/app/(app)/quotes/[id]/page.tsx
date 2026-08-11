@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/format";
 import { QuoteBuilder } from "./quote-builder";
 import type { QuoteStatus, QuoteLineType } from "@/types/database";
-import type { QuoteActivityItem } from "./quote-activity-timeline";
 
 export interface QuoteDetailData {
   id: string;
@@ -65,7 +64,7 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
   const { id } = await params;
   const supabase = await createClient();
 
-  const [quoteRes, lineItemsRes, serviceItemLinesRes, rateTypesRes, settingsRes, activityRes] =
+  const [quoteRes, lineItemsRes, serviceItemLinesRes, rateTypesRes, settingsRes] =
     await Promise.all([
       supabase
         .from("quotes")
@@ -101,12 +100,6 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
         .from("business_settings")
         .select("default_material_markup_percent, trading_name")
         .single(),
-      supabase
-        .from("quote_activity")
-        .select("id, event_type, note, created_at")
-        .eq("quote_id", id)
-        .order("created_at", { ascending: false })
-        .returns<QuoteActivityItem[]>(),
     ]);
 
   if (quoteRes.error || !quoteRes.data) notFound();
@@ -139,7 +132,6 @@ export default async function QuoteDetailPage({ params }: PageProps<"/quotes/[id
         defaultMarkupPercent={settingsRes.data?.default_material_markup_percent ?? 30}
         tradingName={settingsRes.data?.trading_name || "your electrician"}
         customerName={property?.customers?.name ?? "there"}
-        activity={activityRes.data ?? []}
       />
     </div>
   );

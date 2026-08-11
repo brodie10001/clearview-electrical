@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
+import { NumericInput } from "@/components/ui/numeric-input";
 import {
   searchPriceBookItems,
   getFrequentlyUsedPriceBookItems,
@@ -163,12 +164,12 @@ function QuantityStep({
 
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-neutral-500">Quantity</label>
-        <input
-          type="number"
-          min="1"
-          step="1"
+        <NumericInput
+          min={1}
+          step={1}
+          fallback={1}
           value={quantity}
-          onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+          onChange={setQuantity}
           autoFocus
           className={inputClass}
         />

@@ -4,7 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { TodaysJobsWidget, type TodayJob } from "@/components/dashboard/todays-jobs-widget";
 import {
   NeedsAttentionWidget,
-  type StalledJob,
+  type AttentionItem,
 } from "@/components/dashboard/needs-attention-widget";
 import {
   RecentActivityWidget,
@@ -14,25 +14,15 @@ import { PersonalNotesWidget } from "@/components/dashboard/personal-notes-widge
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { todayDateString } from "@/lib/format";
-import type { JobStatus } from "@/types/database";
+import { isJobOpen } from "@/lib/job-status";
+import type { JobStatus, InvoiceStatus } from "@/types/database";
 
-const STALLED_STATUSES = new Set(["On Hold", "Waiting"]);
-const OPEN_STATUSES: JobStatus[] = [
-  "New",
-  "Quoting",
-  "Awaiting Approval",
-  "Ready to Schedule",
-  "Scheduled",
-  "Travelling",
-  "On Site",
-  "On Hold",
-  "Waiting",
-];
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
 
 interface JobRow {
   id: string;
   job_status: TodayJob["job_status"];
+  invoice_status: InvoiceStatus;
   updated_at: string;
   properties: { address: string } | null;
   contacts: { name: string } | null;
@@ -50,22 +40,45 @@ interface TodayVisitRow {
 }
 
 function selectStalledJobs(
-  jobs: Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[],
-): StalledJob[] {
+  jobs: Pick<JobRow, "id" | "job_status" | "invoice_status" | "updated_at" | "properties">[],
+): Extract<AttentionItem, { kind: "stalled_job" }>[] {
   const now = Date.now();
   return jobs
-    .filter(
-      (job) =>
-        STALLED_STATUSES.has(job.job_status) ||
-        now - new Date(job.updated_at).getTime() > STALE_AFTER_MS,
-    )
+    .filter((job) => isJobOpen(job.job_status, job.invoice_status))
+    .filter((job) => now - new Date(job.updated_at).getTime() > STALE_AFTER_MS)
     .slice(0, 5)
     .map((job) => ({
-      id: job.id,
-      job_status: job.job_status,
-      updated_at: job.updated_at,
-      property_address: job.properties?.address ?? "Unknown property",
+      kind: "stalled_job" as const,
+      jobId: job.id,
+      jobStatus: job.job_status,
+      invoiceStatus: job.invoice_status,
+      updatedAt: job.updated_at,
+      propertyAddress: job.properties?.address ?? "Unknown property",
     }));
+}
+
+interface SentQuoteRow {
+  id: string;
+  quote_number: string;
+  total: number;
+  updated_at: string;
+  jobs: { properties: { address: string; customers: { name: string } | null } | null } | null;
+}
+
+// Sent (not Draft) and not yet Accepted/Rejected -- genuinely waiting on the
+// customer, which is what "Needs Attention" should actually mean.
+function selectQuotesAwaitingApproval(
+  quotes: SentQuoteRow[],
+): Extract<AttentionItem, { kind: "quote_awaiting_approval" }>[] {
+  return quotes.map((quote) => ({
+    kind: "quote_awaiting_approval" as const,
+    quoteId: quote.id,
+    quoteNumber: quote.quote_number,
+    customerName: quote.jobs?.properties?.customers?.name ?? null,
+    propertyAddress: quote.jobs?.properties?.address ?? "Unknown property",
+    amount: quote.total,
+    sentAt: quote.updated_at,
+  }));
 }
 
 export default async function DashboardPage() {
@@ -88,6 +101,7 @@ export default async function DashboardPage() {
     recentJobsRes,
     recentDocsRes,
     recentQuotesRes,
+    sentQuotesRes,
     notesRes,
     businessRes,
   ] = await Promise.all([
@@ -100,12 +114,11 @@ export default async function DashboardPage() {
       .returns<TodayVisitRow[]>(),
     supabase
       .from("jobs")
-      .select("id, job_status, updated_at, properties(address)")
-      .in("job_status", OPEN_STATUSES)
+      .select("id, job_status, invoice_status, updated_at, properties(address)")
       .eq("archived", false)
       .order("updated_at", { ascending: true })
-      .limit(20)
-      .returns<Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[]>(),
+      .limit(50)
+      .returns<Pick<JobRow, "id" | "job_status" | "invoice_status" | "updated_at" | "properties">[]>(),
     supabase
       .from("jobs")
       .select("id, job_status, updated_at, properties(address)")
@@ -144,6 +157,13 @@ export default async function DashboardPage() {
         }[]
       >(),
     supabase
+      .from("quotes")
+      .select("id, quote_number, total, updated_at, jobs(properties(address, customers(name)))")
+      .eq("status", "Sent")
+      .order("updated_at", { ascending: true })
+      .limit(10)
+      .returns<SentQuoteRow[]>(),
+    supabase
       .from("personal_note_items")
       .select("id, text, is_checked, position")
       .eq("user_id", user!.id)
@@ -163,7 +183,13 @@ export default async function DashboardPage() {
       contact_name: visit.jobs!.contacts?.name ?? null,
     }));
 
-  const stalledJobs = selectStalledJobs(openJobsRes.data ?? []);
+  // Quotes waiting on the customer take priority (a clear, actionable
+  // follow-up) over generically stalled jobs, then cap the combined list so
+  // the widget stays a quick glance rather than a second task list.
+  const attentionItems: AttentionItem[] = [
+    ...selectQuotesAwaitingApproval(sentQuotesRes.data ?? []),
+    ...selectStalledJobs(openJobsRes.data ?? []),
+  ].slice(0, 6);
 
   const jobActivity: ActivityItem[] = (recentJobsRes.data ?? []).map((job) => ({
     id: job.id,
@@ -194,9 +220,11 @@ export default async function DashboardPage() {
     href: `/quotes/${quote.id}`,
   }));
 
+  // Display limit only -- doesn't touch any underlying history, just how
+  // many of the merged, newest-first events the widget shows.
   const recentActivity = [...jobActivity, ...docActivity, ...quoteActivity]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 6);
+    .slice(0, 5);
 
   return (
     <div className="flex flex-col">
@@ -210,7 +238,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2">
         <TodaysJobsWidget jobs={todayJobs} />
-        <NeedsAttentionWidget jobs={stalledJobs} />
+        <NeedsAttentionWidget items={attentionItems} />
         <RecentActivityWidget items={recentActivity} />
         <div className="flex flex-col gap-4">
           <PersonalNotesWidget initialItems={notesRes.data ?? []} />
