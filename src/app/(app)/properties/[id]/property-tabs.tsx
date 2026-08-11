@@ -32,6 +32,7 @@ import { StatusToggle } from "./status-toggle";
 import { AccessForm } from "./access-form";
 import { ElectricalForm } from "./electrical-form";
 import { ContactsSection } from "./contacts-section";
+import { isJobOpen } from "@/lib/job-status";
 import type {
   PropertyDetailData,
   PropertyAccessData,
@@ -88,7 +89,7 @@ function feedItemTitle(item: PropertyFeedItem): string {
 function feedItemBadge(item: PropertyFeedItem) {
   switch (item.kind) {
     case "job":
-      return <JobStatusBadge status={item.job_status} />;
+      return <JobStatusBadge status={item.job_status} invoiceStatus={item.invoice_status} />;
     case "quote":
       return <QuoteStatusBadge status={item.status} />;
     case "invoice":
@@ -225,7 +226,7 @@ export function PropertyTabs({
             <div className="flex justify-between">
               <span className="text-neutral-500">Open jobs</span>
               <span className="text-neutral-900 dark:text-neutral-50">
-                {jobs.filter((j) => !["Completed", "Closed"].includes(j.job_status)).length}
+                {jobs.filter((j) => isJobOpen(j.job_status, j.invoice_status)).length}
               </span>
             </div>
             <div className="flex justify-between">
