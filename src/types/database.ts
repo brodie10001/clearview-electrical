@@ -24,10 +24,7 @@ export type JobStatus =
   | "Awaiting Approval"
   | "Ready to Schedule"
   | "Scheduled"
-  | "Travelling"
   | "On Site"
-  | "On Hold"
-  | "Waiting"
   | "Completed"
   | "Closed";
 

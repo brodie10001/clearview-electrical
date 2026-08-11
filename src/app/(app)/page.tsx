@@ -16,17 +16,13 @@ import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { todayDateString } from "@/lib/format";
 import type { JobStatus } from "@/types/database";
 
-const STALLED_STATUSES = new Set(["On Hold", "Waiting"]);
 const OPEN_STATUSES: JobStatus[] = [
   "New",
   "Quoting",
   "Awaiting Approval",
   "Ready to Schedule",
   "Scheduled",
-  "Travelling",
   "On Site",
-  "On Hold",
-  "Waiting",
 ];
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
 
@@ -54,11 +50,7 @@ function selectStalledJobs(
 ): StalledJob[] {
   const now = Date.now();
   return jobs
-    .filter(
-      (job) =>
-        STALLED_STATUSES.has(job.job_status) ||
-        now - new Date(job.updated_at).getTime() > STALE_AFTER_MS,
-    )
+    .filter((job) => now - new Date(job.updated_at).getTime() > STALE_AFTER_MS)
     .slice(0, 5)
     .map((job) => ({
       id: job.id,

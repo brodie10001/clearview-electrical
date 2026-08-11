@@ -92,6 +92,22 @@ export async function createQuote(formData: FormData) {
 
   await recalculateQuoteTotals(supabase, data.id);
 
+  // New -> Quoting fires only the first time a job gets a quote. The
+  // conditional UPDATE (not a read-then-write) makes "only from New, never
+  // on a Cancelled/Declined job" atomic instead of a check-then-act race.
+  const { count: quoteCount } = await supabase
+    .from("quotes")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+  if (quoteCount === 1) {
+    await supabase
+      .from("jobs")
+      .update({ job_status: "Quoting" })
+      .eq("id", jobId)
+      .eq("job_status", "New")
+      .is("outcome", null);
+  }
+
   revalidatePath(`/jobs/${jobId}`);
   revalidatePath("/finances/quotes");
   redirect(`/quotes/${data.id}`);
@@ -138,6 +154,15 @@ export async function shareQuote(quoteId: string, jobId: string): Promise<{ toke
     await supabase.from("quotes").update({ status: "Sent" }).eq("id", quoteId);
     await recalculateQuoteTotals(supabase, quoteId);
     await supabase.from("quote_activity").insert({ quote_id: quoteId, event_type: "Sent" });
+
+    // Quoting -> Awaiting Approval, same atomic-conditional-update pattern
+    // as New -> Quoting above.
+    await supabase
+      .from("jobs")
+      .update({ job_status: "Awaiting Approval" })
+      .eq("id", jobId)
+      .eq("job_status", "Quoting")
+      .is("outcome", null);
   }
 
   revalidateQuote(quoteId, jobId);
