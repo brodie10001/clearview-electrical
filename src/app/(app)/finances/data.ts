@@ -4,6 +4,7 @@ import {
   resolveDateRange,
   computeFinancesSummary,
   bucketRevenueByMonth,
+  isOutstandingInvoiceStatus,
   round2,
   type DateFilterKey,
   type DateRange,
@@ -12,6 +13,7 @@ import {
   type MonthBucket,
   type FinancesSummary,
 } from "@/lib/finances";
+import type { InvoiceRecordStatus } from "@/types/database";
 
 export interface RecentPayment {
   id: string;
@@ -29,11 +31,22 @@ export interface HighestValueJob {
   revenue: number;
 }
 
+export interface OutstandingInvoice {
+  id: string;
+  invoiceNumber: string;
+  status: InvoiceRecordStatus;
+  amountOutstanding: number;
+  dueDate: string;
+  propertyAddress: string;
+  customerName: string | null;
+}
+
 export interface FinancesDashboardData {
   range: DateRange;
   summary: FinancesSummary;
   recentPayments: RecentPayment[];
   highestValueJobs: HighestValueJob[];
+  outstandingInvoices: OutstandingInvoice[];
   revenueTrend: MonthBucket[];
 }
 
@@ -50,7 +63,7 @@ export async function getFinancesDashboardData(
   let invoiceQuery = supabase
     .from("invoices")
     .select(
-      "id, job_id, amount, issue_date, due_date, status, payments(amount), jobs(properties(address, customers(name)))",
+      "id, job_id, invoice_number, amount, issue_date, due_date, status, payments(amount), jobs(properties(address, customers(name)))",
     )
     .order("issue_date", { ascending: false });
   if (range.start) invoiceQuery = invoiceQuery.gte("issue_date", range.start);
@@ -77,6 +90,7 @@ export async function getFinancesDashboardData(
       {
         id: string;
         job_id: string;
+        invoice_number: string;
         amount: number;
         issue_date: string;
         due_date: string;
@@ -203,6 +217,31 @@ export async function getFinancesDashboardData(
     jobDirectCosts,
   });
 
+  // Same OUTSTANDING_STATUSES rule and the same invoicesForCalc rows the
+  // "Outstanding Invoices" KPI is built from -- built from one fetch, so the
+  // KPI figure and this list can never disagree with each other.
+  const outstandingInvoices: OutstandingInvoice[] = invoiceRows
+    .filter((inv) => isOutstandingInvoiceStatus(inv.status))
+    .map((inv) => {
+      const paidAmount = round2((inv.payments ?? []).reduce((sum, p) => sum + p.amount, 0));
+      return {
+        id: inv.id,
+        invoiceNumber: inv.invoice_number,
+        status: inv.status as InvoiceRecordStatus,
+        amountOutstanding: round2(inv.amount - paidAmount),
+        dueDate: inv.due_date,
+        propertyAddress: inv.jobs?.properties?.address ?? "Unknown property",
+        customerName: inv.jobs?.properties?.customers?.name ?? null,
+      };
+    })
+    // Overdue first (most urgent), then oldest due date within each group.
+    .sort((a, b) => {
+      if (a.status === "Overdue" && b.status !== "Overdue") return -1;
+      if (b.status === "Overdue" && a.status !== "Overdue") return 1;
+      return a.dueDate.localeCompare(b.dueDate);
+    })
+    .slice(0, 8);
+
   const recentPayments: RecentPayment[] = paymentRows.slice(0, 8).map((p) => ({
     id: p.id,
     amount: p.amount,
@@ -253,5 +292,5 @@ export async function getFinancesDashboardData(
     revenueTrend = revenueTrend.slice(revenueTrend.length - MAX_TREND_MONTHS);
   }
 
-  return { range, summary, recentPayments, highestValueJobs, revenueTrend };
+  return { range, summary, recentPayments, highestValueJobs, outstandingInvoices, revenueTrend };
 }

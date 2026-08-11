@@ -4,6 +4,7 @@ import { getFinancesDashboardData } from "./data";
 import { FinancesFilterBar } from "@/components/finances/finances-filter-bar";
 import { AddExpenseButton } from "@/components/finances/add-expense-button";
 import { RevenueTrendChart } from "@/components/finances/revenue-trend-chart";
+import { InvoiceRecordStatusBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/format";
 import type { DateFilterKey } from "@/lib/finances";
 
@@ -50,10 +51,8 @@ export default async function FinancesPage({ searchParams }: PageProps<"/finance
   const from = typeof params.from === "string" ? params.from : null;
   const to = typeof params.to === "string" ? params.to : null;
 
-  const { summary, recentPayments, highestValueJobs, revenueTrend } = await getFinancesDashboardData(
-    filter,
-    { from, to },
-  );
+  const { summary, recentPayments, highestValueJobs, outstandingInvoices, revenueTrend } =
+    await getFinancesDashboardData(filter, { from, to });
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
@@ -100,6 +99,51 @@ export default async function FinancesPage({ searchParams }: PageProps<"/finance
           ) : null}
         </section>
       ) : null}
+
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Outstanding Invoices
+          </h2>
+          <Link
+            href="/finances/invoices"
+            className="text-xs font-medium text-amber-600 hover:underline dark:text-amber-400"
+          >
+            View all invoices
+          </Link>
+        </div>
+        {outstandingInvoices.length === 0 ? (
+          <p className="py-4 text-center text-sm text-neutral-500">
+            Nothing outstanding right now.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
+            {outstandingInvoices.map((inv) => (
+              <li key={inv.id}>
+                <Link
+                  href={`/invoices/${inv.id}`}
+                  className="flex items-center gap-3 py-2.5 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                      {inv.customerName ?? "Unknown customer"}
+                    </p>
+                    <p className="truncate text-xs text-neutral-500">
+                      {inv.invoiceNumber} · {inv.propertyAddress} · Due {formatDate(inv.dueDate)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                      {money(inv.amountOutstanding)}
+                    </span>
+                    <InvoiceRecordStatusBadge status={inv.status} />
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">

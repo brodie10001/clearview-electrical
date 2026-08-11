@@ -100,6 +100,13 @@ export interface FinancesSummary {
 const NOT_INVOICED_STATUSES = new Set(["Draft", "Void"]);
 const OUTSTANDING_STATUSES = new Set(["Sent", "Partially Paid", "Overdue"]);
 
+// Exported so the Outstanding Invoices list on the Finances dashboard can
+// filter with the exact same rule the KPI figure uses -- built from the
+// same fetched invoice rows, so the two can never contradict each other.
+export function isOutstandingInvoiceStatus(status: string): boolean {
+  return OUTSTANDING_STATUSES.has(status);
+}
+
 // GST component of a GST-inclusive figure: amount = exGst * 1.1, so
 // GST = exGst * 0.1 = amount / 11. Same ÷11 convention used for expenses
 // and already established for quotes (subtotal * GST_RATE, GST_RATE = 0.1).
