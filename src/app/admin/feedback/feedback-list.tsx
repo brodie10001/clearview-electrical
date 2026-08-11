@@ -116,7 +116,10 @@ function FeedbackCard({ item }: { item: FeedbackRow }) {
   }
 
   return (
-    <li className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+    <li
+      id={item.id}
+      className="scroll-mt-4 flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900 target:border-amber-500 target:ring-1 target:ring-amber-500"
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
