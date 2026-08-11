@@ -25,11 +25,14 @@ interface WebhookPayload {
   record: FeedbackRecord;
 }
 
-const ADMIN_EMAIL = Deno.env.get("FEEDBACK_NOTIFICATION_EMAIL");
-const APP_URL = Deno.env.get("APP_URL");
-const SMTP_HOST = Deno.env.get("GMAIL_SMTP_HOST") ?? "smtp.gmail.com";
-const SMTP_USER = Deno.env.get("GMAIL_SMTP_USER");
-const SMTP_PASSWORD = Deno.env.get("GMAIL_SMTP_PASSWORD");
+// .trim() everywhere -- Supabase's secrets field is a multi-line textarea,
+// and a stray trailing newline from pasting is invisible but breaks
+// denomailer's strict "from" address validation and Gmail's auth check.
+const ADMIN_EMAIL = Deno.env.get("FEEDBACK_NOTIFICATION_EMAIL")?.trim();
+const APP_URL = Deno.env.get("APP_URL")?.trim();
+const SMTP_HOST = Deno.env.get("GMAIL_SMTP_HOST")?.trim() ?? "smtp.gmail.com";
+const SMTP_USER = Deno.env.get("GMAIL_SMTP_USER")?.trim();
+const SMTP_PASSWORD = Deno.env.get("GMAIL_SMTP_PASSWORD")?.trim();
 
 function escapeHtml(value: string) {
   return value
@@ -103,7 +106,14 @@ Deno.serve(async (req) => {
     console.error("Failed to send feedback notification email:", error);
     return new Response("Failed to send email", { status: 500 });
   } finally {
-    await client.close();
+    // client.close() throws its own confusing secondary error if send()
+    // failed before a connection was ever established (e.g. config
+    // validation) -- swallow that, the real error is already logged above.
+    try {
+      await client.close();
+    } catch {
+      // ignore
+    }
   }
 
   return new Response("OK", { status: 200 });
