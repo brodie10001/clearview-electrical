@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateJobStatus } from "../actions";
 import { InvoiceStatusBadge } from "@/components/ui/status-badge";
+import { getJobStatusLabel } from "@/lib/job-status";
 import type { JobStatus, InvoiceStatus } from "@/types/database";
 
 const JOB_STATUSES: JobStatus[] = [
@@ -11,10 +12,7 @@ const JOB_STATUSES: JobStatus[] = [
   "Awaiting Approval",
   "Ready to Schedule",
   "Scheduled",
-  "Travelling",
   "On Site",
-  "On Hold",
-  "Waiting",
   "Completed",
   "Closed",
 ];
@@ -29,6 +27,7 @@ export function JobControls({
   invoiceStatus: InvoiceStatus;
 }) {
   const [status, setStatus] = useState(jobStatus);
+  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   return (
@@ -39,8 +38,17 @@ export function JobControls({
           value={status}
           onChange={(e) => {
             const value = e.target.value as JobStatus;
+            const previous = status;
             setStatus(value);
-            startTransition(() => updateJobStatus(jobId, value));
+            setError(null);
+            startTransition(async () => {
+              try {
+                await updateJobStatus(jobId, value);
+              } catch (err) {
+                setStatus(previous);
+                setError(err instanceof Error ? err.message : "Failed to update status.");
+              }
+            });
           }}
           className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
         >
@@ -50,6 +58,13 @@ export function JobControls({
             </option>
           ))}
         </select>
+        {error ? (
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        ) : status === "Completed" ? (
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            {getJobStatusLabel(status, invoiceStatus)}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-1.5">

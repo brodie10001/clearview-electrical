@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import { getJobStatusLabel } from "@/lib/job-status";
 import type {
   JobStatus,
   InvoiceStatus,
@@ -15,10 +16,7 @@ const JOB_STATUS_STYLES: Record<JobStatus, string> = {
   "Awaiting Approval": "bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400",
   "Ready to Schedule": "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400",
   Scheduled: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
-  Travelling: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400",
   "On Site": "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
-  "On Hold": "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400",
-  Waiting: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400",
   Completed: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
   Closed: "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
 };
@@ -33,7 +31,15 @@ const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   "Written Off": "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
 };
 
-export function JobStatusBadge({ status }: { status: JobStatus }) {
+export function JobStatusBadge({
+  status,
+  invoiceStatus,
+}: {
+  status: JobStatus;
+  // Optional -- callers that don't have it fall back to the plain
+  // job_status label, same as before this existed.
+  invoiceStatus?: InvoiceStatus;
+}) {
   return (
     <span
       className={clsx(
@@ -41,7 +47,7 @@ export function JobStatusBadge({ status }: { status: JobStatus }) {
         JOB_STATUS_STYLES[status],
       )}
     >
-      {status}
+      {invoiceStatus ? getJobStatusLabel(status, invoiceStatus) : status}
     </span>
   );
 }

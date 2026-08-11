@@ -14,25 +14,15 @@ import { PersonalNotesWidget } from "@/components/dashboard/personal-notes-widge
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { todayDateString } from "@/lib/format";
-import type { JobStatus } from "@/types/database";
+import { isJobOpen } from "@/lib/job-status";
+import type { JobStatus, InvoiceStatus } from "@/types/database";
 
-const STALLED_STATUSES = new Set(["On Hold", "Waiting"]);
-const OPEN_STATUSES: JobStatus[] = [
-  "New",
-  "Quoting",
-  "Awaiting Approval",
-  "Ready to Schedule",
-  "Scheduled",
-  "Travelling",
-  "On Site",
-  "On Hold",
-  "Waiting",
-];
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
 
 interface JobRow {
   id: string;
   job_status: TodayJob["job_status"];
+  invoice_status: InvoiceStatus;
   updated_at: string;
   properties: { address: string } | null;
   contacts: { name: string } | null;
@@ -50,15 +40,12 @@ interface TodayVisitRow {
 }
 
 function selectStalledJobs(
-  jobs: Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[],
+  jobs: Pick<JobRow, "id" | "job_status" | "invoice_status" | "updated_at" | "properties">[],
 ): StalledJob[] {
   const now = Date.now();
   return jobs
-    .filter(
-      (job) =>
-        STALLED_STATUSES.has(job.job_status) ||
-        now - new Date(job.updated_at).getTime() > STALE_AFTER_MS,
-    )
+    .filter((job) => isJobOpen(job.job_status, job.invoice_status))
+    .filter((job) => now - new Date(job.updated_at).getTime() > STALE_AFTER_MS)
     .slice(0, 5)
     .map((job) => ({
       id: job.id,
@@ -100,12 +87,11 @@ export default async function DashboardPage() {
       .returns<TodayVisitRow[]>(),
     supabase
       .from("jobs")
-      .select("id, job_status, updated_at, properties(address)")
-      .in("job_status", OPEN_STATUSES)
+      .select("id, job_status, invoice_status, updated_at, properties(address)")
       .eq("archived", false)
       .order("updated_at", { ascending: true })
-      .limit(20)
-      .returns<Pick<JobRow, "id" | "job_status" | "updated_at" | "properties">[]>(),
+      .limit(50)
+      .returns<Pick<JobRow, "id" | "job_status" | "invoice_status" | "updated_at" | "properties">[]>(),
     supabase
       .from("jobs")
       .select("id, job_status, updated_at, properties(address)")
@@ -194,9 +180,11 @@ export default async function DashboardPage() {
     href: `/quotes/${quote.id}`,
   }));
 
+  // Display limit only -- doesn't touch any underlying history, just how
+  // many of the merged, newest-first events the widget shows.
   const recentActivity = [...jobActivity, ...docActivity, ...quoteActivity]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 6);
+    .slice(0, 5);
 
   return (
     <div className="flex flex-col">

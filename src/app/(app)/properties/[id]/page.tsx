@@ -10,6 +10,7 @@ import type {
   DocumentType,
   PhotoCategory,
   JobStatus,
+  InvoiceStatus,
   QuoteStatus,
   InvoiceRecordStatus,
   TestResult,
@@ -77,6 +78,7 @@ export interface PropertyDocumentData {
 export interface PropertyJobData {
   id: string;
   job_status: JobStatus;
+  invoice_status: InvoiceStatus;
   created_at: string;
   createdAtLabel: string;
   nextVisitLabel: string | null;
@@ -89,6 +91,7 @@ export type PropertyFeedItem =
       date: string;
       dateLabel: string;
       job_status: JobStatus;
+      invoice_status: InvoiceStatus;
       nextVisitLabel: string | null;
     }
   | {
@@ -165,7 +168,7 @@ export default async function PropertyDetailPage({ params }: PageProps<"/propert
         .returns<Omit<PropertyDocumentData, "createdAtLabel">[]>(),
       supabase
         .from("jobs")
-        .select("id, job_status, created_at")
+        .select("id, job_status, invoice_status, created_at")
         .eq("property_id", id)
         .order("created_at", { ascending: false })
         .returns<Omit<PropertyJobData, "createdAtLabel" | "nextVisitLabel">[]>(),
@@ -262,6 +265,7 @@ export default async function PropertyDetailPage({ params }: PageProps<"/propert
         date: job.created_at,
         dateLabel: job.createdAtLabel,
         job_status: job.job_status,
+        invoice_status: job.invoice_status,
         nextVisitLabel: job.nextVisitLabel,
       }),
     ),

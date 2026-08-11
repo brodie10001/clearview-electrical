@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { clsx } from "clsx";
 import { todayDateString } from "@/lib/format";
 import { JobsList, type JobListRow } from "./jobs-list";
+import { isJobOpen } from "@/lib/job-status";
 import type { JobStatus, InvoiceStatus } from "@/types/database";
 
 const FILTERS = [
@@ -11,18 +12,6 @@ const FILTERS = [
   { label: "All", value: "all" },
   { label: "Completed", value: "completed" },
 ] as const;
-
-const OPEN_STATUSES: JobStatus[] = [
-  "New",
-  "Quoting",
-  "Awaiting Approval",
-  "Ready to Schedule",
-  "Scheduled",
-  "Travelling",
-  "On Site",
-  "On Hold",
-  "Waiting",
-];
 
 interface JobRowFromDb {
   id: string;
@@ -44,17 +33,24 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
   const showArchived = archivedParam === "1";
 
   const supabase = await createClient();
-  let query = supabase
+  const query = supabase
     .from("jobs")
     .select("id, job_status, invoice_status, created_at, properties(address, customers(name))")
     .eq("archived", showArchived)
     .order("created_at", { ascending: false });
 
-  if (filter === "open") query = query.in("job_status", OPEN_STATUSES);
-  if (filter === "completed") query = query.in("job_status", ["Completed", "Closed"]);
-
   const { data: jobsData } = await query.returns<JobRowFromDb[]>();
-  const jobs = jobsData ?? [];
+  const allJobs = jobsData ?? [];
+
+  // "Open" vs "Completed" can't be a plain job_status filter -- a job whose
+  // work is physically done but still owes money must stay open (see
+  // isJobOpen). Fetch everything for this archived state, filter here.
+  const jobs =
+    filter === "open"
+      ? allJobs.filter((j) => isJobOpen(j.job_status, j.invoice_status))
+      : filter === "completed"
+        ? allJobs.filter((j) => !isJobOpen(j.job_status, j.invoice_status))
+        : allJobs;
 
   const jobIds = jobs.map((j) => j.id);
   const { data: visitsData } =
