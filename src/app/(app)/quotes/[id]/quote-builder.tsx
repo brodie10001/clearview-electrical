@@ -30,7 +30,6 @@ import {
 import { AddMaterialDialog } from "./add-material-dialog";
 import { AddPriceBookItemDialog } from "./add-price-book-item-dialog";
 import { ShareQuoteDialog } from "./share-quote-dialog";
-import { QuoteActivityTimeline, type QuoteActivityItem } from "./quote-activity-timeline";
 import type {
   QuoteDetailData,
   QuoteLineItemData,
@@ -53,7 +52,6 @@ export function QuoteBuilder({
   defaultMarkupPercent,
   tradingName,
   customerName,
-  activity,
 }: {
   quote: QuoteDetailData;
   lineItems: QuoteLineItemData[];
@@ -62,7 +60,6 @@ export function QuoteBuilder({
   defaultMarkupPercent: number;
   tradingName: string;
   customerName: string;
-  activity: QuoteActivityItem[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -116,51 +113,36 @@ export function QuoteBuilder({
           />
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {!locked ? (
+        {locked ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {quote.status === "Sent" ? (
+              <>
+                <button
+                  onClick={() =>
+                    startTransition(() => markQuoteAccepted(quote.id, quote.job_id).then(refresh))
+                  }
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Mark as Accepted
+                </button>
+                <button
+                  onClick={() => setDeclining(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
+                >
+                  <XCircle className="h-4 w-4" /> Mark as Declined
+                </button>
+              </>
+            ) : null}
             <button
-              onClick={() => setSharing(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+              onClick={() =>
+                startTransition(() => createNewQuoteVersion(quote.id, quote.job_id).then(refresh))
+              }
+              className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
-              <Share2 className="h-4 w-4" /> Share Quote
+              <History className="h-4 w-4" /> Start new version
             </button>
-          ) : (
-            <>
-              <button
-                onClick={() => setSharing(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3.5 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                <Share2 className="h-4 w-4" /> Share again
-              </button>
-              {quote.status === "Sent" ? (
-                <>
-                  <button
-                    onClick={() =>
-                      startTransition(() => markQuoteAccepted(quote.id, quote.job_id).then(refresh))
-                    }
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Mark as Accepted
-                  </button>
-                  <button
-                    onClick={() => setDeclining(true)}
-                    className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:hover:bg-red-500/10"
-                  >
-                    <XCircle className="h-4 w-4" /> Mark as Declined
-                  </button>
-                </>
-              ) : null}
-              <button
-                onClick={() =>
-                  startTransition(() => createNewQuoteVersion(quote.id, quote.job_id).then(refresh))
-                }
-                className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-              >
-                <History className="h-4 w-4" /> Start new version
-              </button>
-            </>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {declining ? (
           <form
@@ -435,8 +417,20 @@ export function QuoteBuilder({
       </section>
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">Activity</h2>
-        <QuoteActivityTimeline items={activity} />
+        <h2 className="mb-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+          Share Quote
+        </h2>
+        <p className="mb-3 text-xs text-neutral-500">
+          {locked
+            ? "This quote has already been shared. Sharing again sends the same link."
+            : "Once the quote is ready, share it with the customer for review."}
+        </p>
+        <button
+          onClick={() => setSharing(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 sm:w-auto"
+        >
+          <Share2 className="h-4 w-4" /> {locked ? "Share again" : "Share Quote"}
+        </button>
       </section>
 
       {sharing ? (
