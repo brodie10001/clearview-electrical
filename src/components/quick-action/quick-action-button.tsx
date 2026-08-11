@@ -6,7 +6,7 @@ import { Plus, Briefcase, Camera, Receipt, FileText, X } from "lucide-react";
 import { clsx } from "clsx";
 import { QuickPhotoDialog } from "./quick-photo-dialog";
 import { NewQuoteDialog } from "./new-quote-dialog";
-import { Dialog } from "@/components/ui/dialog";
+import { ExpenseDialog } from "@/components/expenses/expense-dialog";
 
 export function QuickActionButton() {
   const router = useRouter();
@@ -88,16 +88,7 @@ export function QuickActionButton() {
 
       <NewQuoteDialog open={quoteDialogOpen} onClose={() => setQuoteDialogOpen(false)} />
 
-      <Dialog
-        open={expenseDialogOpen}
-        onClose={() => setExpenseDialogOpen(false)}
-        title="Log Expense"
-      >
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          Expense tracking is coming soon. It&apos;ll live alongside invoicing in the
-          Finances tab.
-        </p>
-      </Dialog>
+      <ExpenseDialog open={expenseDialogOpen} onClose={() => setExpenseDialogOpen(false)} />
     </>
   );
 }

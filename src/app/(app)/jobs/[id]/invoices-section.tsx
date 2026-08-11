@@ -60,12 +60,16 @@ export function InvoicesSection({
       {invoices.length === 0 ? (
         <p className="text-sm text-neutral-500">No invoices for this job yet.</p>
       ) : (
-        <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
+        <ul className="flex flex-col gap-2">
           {invoices.map((invoice) => (
             <li key={invoice.id}>
+              {/* The whole card -- amount, invoice number, due date, and
+                  status -- is one Link, so tapping anywhere on it (not just
+                  the text) opens the invoice. The border/hover treatment
+                  makes that obvious rather than just true. */}
               <Link
                 href={`/invoices/${invoice.id}`}
-                className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-3.5 py-3 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-neutral-800"
               >
                 <Receipt className="h-4 w-4 shrink-0 text-neutral-400" />
                 <div className="min-w-0 flex-1">
