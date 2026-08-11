@@ -70,10 +70,15 @@ Deno.serve(async (req) => {
     timeStyle: "short",
   });
 
+  // Port 465 (implicit TLS) rather than 587 (STARTTLS) -- denomailer's
+  // `tls: true` negotiates TLS immediately on connect, which only port 465
+  // expects; pairing it with 587 sends a raw TLS handshake to a server
+  // still expecting plaintext, which Deno's stream parser sees as
+  // "corrupt message" and fails outright.
   const client = new SMTPClient({
     connection: {
       hostname: SMTP_HOST,
-      port: 587,
+      port: 465,
       tls: true,
       auth: { username: SMTP_USER, password: SMTP_PASSWORD },
     },
