@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { NumericInput } from "@/components/ui/numeric-input";
 import {
   createGenericMaterial,
   toggleGenericMaterialActive,
@@ -456,13 +457,12 @@ function ProductForm({
         <div className="grid grid-cols-3 gap-2 sm:max-w-md">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-neutral-500">Cost price</label>
-            <input
+            <NumericInput
               name="cost_price"
-              type="number"
-              step="0.01"
-              min="0"
+              step={0.01}
+              min={0}
               value={cost}
-              onChange={(e) => setCost(Number(e.target.value) || 0)}
+              onChange={setCost}
               className={inputClass}
             />
           </div>
@@ -484,13 +484,12 @@ function ProductForm({
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-neutral-500">Sell price</label>
             <div className="flex items-center gap-1">
-              <input
+              <NumericInput
                 name="sell_price"
-                type="number"
-                step="0.01"
-                min="0"
+                step={0.01}
+                min={0}
                 value={sellPrice}
-                onChange={(e) => setSellPrice(Number(e.target.value) || 0)}
+                onChange={setSellPrice}
                 className={clsx(inputClass, "w-full")}
               />
               <button

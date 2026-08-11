@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Plus, Receipt, Wrench, LayoutList } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { InvoiceRecordStatusBadge } from "@/components/ui/status-badge";
 import { createAdHocInvoice, createInvoicesFromTemplate } from "../../invoices/actions";
 import { PAYMENT_TERMS_OPTIONS, dueDateFromTerms } from "@/lib/payment-terms";
@@ -282,17 +283,14 @@ function TemplateStep({
             </div>
             <div className="flex w-20 flex-col gap-1">
               <label className="text-xs font-medium text-neutral-500">%</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="100"
+              <NumericInput
+                step={0.1}
+                min={0}
+                max={100}
                 value={stage.percentage}
-                onChange={(e) =>
+                onChange={(value) =>
                   setStages((prev) =>
-                    prev.map((s, si) =>
-                      si === i ? { ...s, percentage: Number(e.target.value) || 0 } : s,
-                    ),
+                    prev.map((s, si) => (si === i ? { ...s, percentage: value } : s)),
                   )
                 }
                 className={inputClass}
@@ -425,14 +423,13 @@ function AdHocStep({
       {amountType === "percentage" ? (
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-neutral-500">Percentage</label>
-          <input
+          <NumericInput
             name="percentage"
-            type="number"
-            step="0.1"
-            min="0"
-            max="100"
+            step={0.1}
+            min={0}
+            max={100}
             value={percentage}
-            onChange={(e) => setPercentage(Number(e.target.value) || 0)}
+            onChange={setPercentage}
             required
             className={inputClass}
           />
@@ -440,13 +437,12 @@ function AdHocStep({
       ) : (
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-neutral-500">Amount</label>
-          <input
+          <NumericInput
             name="amount"
-            type="number"
-            step="0.01"
-            min="0"
+            step={0.01}
+            min={0}
             value={amount}
-            onChange={(e) => setAmount(Number(e.target.value) || 0)}
+            onChange={setAmount}
             required
             className={inputClass}
           />
