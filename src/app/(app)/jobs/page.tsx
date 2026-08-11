@@ -18,10 +18,7 @@ const OPEN_STATUSES: JobStatus[] = [
   "Awaiting Approval",
   "Ready to Schedule",
   "Scheduled",
-  "Travelling",
   "On Site",
-  "On Hold",
-  "Waiting",
 ];
 
 interface JobRowFromDb {
