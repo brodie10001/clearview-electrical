@@ -46,9 +46,20 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verifies the JWT's signature locally against the project's
+  // cached JSON Web Key Set instead of calling the Auth server, IF the
+  // project uses asymmetric (ES256/RS256) JWT signing keys -- eliminating a
+  // real network round-trip that ran on every single navigation (every page
+  // load and every server action, since this middleware runs on all of
+  // them). If the project still uses a legacy symmetric signing secret, the
+  // SDK itself transparently falls back to a getUser()-equivalent network
+  // call, so this is safe to ship ahead of that project setting being
+  // changed -- it only gets faster once asymmetric keys are enabled in
+  // Supabase Dashboard -> Authentication -> JWT Keys.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const user = claimsData?.claims
+    ? { id: claimsData.claims.sub, email: claimsData.claims.email ?? null }
+    : null;
 
   const isAuthRoute =
     request.nextUrl.pathname.startsWith("/login") ||
