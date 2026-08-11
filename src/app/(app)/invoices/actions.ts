@@ -128,35 +128,33 @@ export async function updateInvoice(invoiceId: string, jobId: string, formData: 
   revalidateInvoice(invoiceId, jobId);
 }
 
+// Paid and Partially Paid are derived live from actual payment records (see
+// recompute_invoice_status in the invoices migration, triggered on every
+// payments change) -- never a manual, independent choice. Draft/Sent/
+// Overdue/Void/Written Off stay deliberate, manual states.
+const MANUALLY_SETTABLE_STATUSES = new Set<InvoiceRecordStatus>([
+  "Draft",
+  "Sent",
+  "Overdue",
+  "Void",
+  "Written Off",
+]);
+
 export async function updateInvoiceStatus(
   invoiceId: string,
   jobId: string,
   status: InvoiceRecordStatus,
 ) {
-  const supabase = await createClient();
-  await supabase.from("invoices").update({ status }).eq("id", invoiceId);
-
-  // Marking an invoice "Paid" is a distinct action from recording a payment,
-  // but the two must never drift apart -- an invoice flagged Paid with no
-  // payment behind it is exactly what made Payments Received silently
-  // diverge from Revenue Invoiced. Auto-record the remaining balance as a
-  // payment so the two stay consistent, the same way recordPayment() would.
-  if (status === "Paid") {
-    const [{ data: invoice }, { data: payments }] = await Promise.all([
-      supabase.from("invoices").select("amount").eq("id", invoiceId).single(),
-      supabase.from("payments").select("amount").eq("invoice_id", invoiceId),
-    ]);
-    const paidToDate = (payments ?? []).reduce((sum, p) => sum + p.amount, 0);
-    const balance = Math.round(((invoice?.amount ?? 0) - paidToDate) * 100) / 100;
-    if (balance > 0) {
-      await supabase.from("payments").insert({
-        invoice_id: invoiceId,
-        amount: balance,
-        notes: "Auto-recorded: invoice marked Paid",
-      });
-    }
+  // Same "never trust the client" reasoning as assertQuoteIsDraft in
+  // quotes/actions.ts -- Server Actions are reachable directly by anyone who
+  // can POST to them, so this can't rely on the dropdown simply not
+  // offering the derived statuses as options.
+  if (!MANUALLY_SETTABLE_STATUSES.has(status)) {
+    throw new Error(`${status} is derived from recorded payments and can't be set manually.`);
   }
 
+  const supabase = await createClient();
+  await supabase.from("invoices").update({ status }).eq("id", invoiceId);
   revalidateInvoice(invoiceId, jobId);
 }
 
