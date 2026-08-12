@@ -1048,6 +1048,29 @@ export interface Database {
           },
         ];
       };
+      invoice_public_tokens: {
+        Row: {
+          business_id: string;
+          id: string;
+          invoice_id: string;
+          token: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["invoice_public_tokens"]["Row"]> & {
+          invoice_id: string;
+          token: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["invoice_public_tokens"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "invoice_public_tokens_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: true;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       payments: {
         Row: {
           business_id: string;

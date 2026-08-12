@@ -37,7 +37,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
   const { id } = await params;
   const supabase = await createClient();
 
-  const [invoiceRes, paymentsRes] = await Promise.all([
+  const [invoiceRes, paymentsRes, settingsRes] = await Promise.all([
     supabase
       .from("invoices")
       .select(
@@ -52,6 +52,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
       .eq("invoice_id", id)
       .order("paid_date", { ascending: false })
       .returns<PaymentData[]>(),
+    supabase.from("business_settings").select("trading_name").maybeSingle(),
   ]);
 
   if (invoiceRes.error || !invoiceRes.data) notFound();
@@ -76,7 +77,13 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
         </p>
       </div>
 
-      <InvoiceBuilder invoice={invoice} payments={paymentsRes.data ?? []} today={todayDateString()} />
+      <InvoiceBuilder
+        invoice={invoice}
+        payments={paymentsRes.data ?? []}
+        today={todayDateString()}
+        tradingName={settingsRes.data?.trading_name || "your electrician"}
+        customerName={property?.customers?.name ?? "Customer"}
+      />
     </div>
   );
 }

@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Share2, Trash2 } from "lucide-react";
 import {
   updateInvoice,
   updateInvoiceStatus,
   recordPayment,
   deletePayment,
 } from "../actions";
+import { ShareInvoiceDialog } from "./share-invoice-dialog";
 import { InvoiceRecordStatusBadge } from "@/components/ui/status-badge";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { PAYMENT_TERMS_OPTIONS, dueDateFromTerms } from "@/lib/payment-terms";
@@ -39,10 +40,14 @@ export function InvoiceBuilder({
   invoice,
   payments,
   today,
+  tradingName,
+  customerName,
 }: {
   invoice: InvoiceDetailData;
   payments: PaymentData[];
   today: string;
+  tradingName: string;
+  customerName: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -65,6 +70,7 @@ export function InvoiceBuilder({
   const [addingPayment, setAddingPayment] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodOption>("Bank Transfer");
   const [otherMethod, setOtherMethod] = useState("");
+  const [sharing, setSharing] = useState(false);
 
   const paidToDate = payments.reduce((sum, p) => sum + p.amount, 0);
   const balance = invoice.amount - paidToDate;
@@ -121,7 +127,13 @@ export function InvoiceBuilder({
             </p>
           </div>
 
-          <div className="flex flex-col justify-end">
+          <div className="flex flex-col justify-end gap-2">
+            <button
+              onClick={() => setSharing(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+            >
+              <Share2 className="h-4 w-4" /> Share Invoice
+            </button>
             <a
               href={`/api/invoices/${invoice.id}/pdf`}
               className="flex items-center justify-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
@@ -131,6 +143,18 @@ export function InvoiceBuilder({
           </div>
         </div>
       </section>
+
+      {sharing ? (
+        <ShareInvoiceDialog
+          invoiceId={invoice.id}
+          jobId={invoice.job_id}
+          invoiceNumber={invoice.invoice_number}
+          tradingName={tradingName}
+          customerName={customerName}
+          onClose={() => setSharing(false)}
+          onShared={refresh}
+        />
+      ) : null}
 
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
         <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">Payments</h2>
