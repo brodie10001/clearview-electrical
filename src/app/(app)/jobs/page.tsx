@@ -33,11 +33,17 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
   const showArchived = archivedParam === "1";
 
   const supabase = await createClient();
+  // Not paginated: below, jobs are re-sorted by next-visit-date across the
+  // whole filtered set, which a naive offset/limit window would break --
+  // paging the sort output instead of the raw rows. Capped defensively so
+  // one business's runaway job count can't return an unbounded response;
+  // real pagination here needs the next-visit sort itself pushed into SQL.
   const query = supabase
     .from("jobs")
     .select("id, job_status, invoice_status, created_at, properties(address, customers(name))")
     .eq("archived", showArchived)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   const { data: jobsData } = await query.returns<JobRowFromDb[]>();
   const allJobs = jobsData ?? [];
