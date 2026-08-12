@@ -1,7 +1,7 @@
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { reset } = await searchParams;
+  const { reset, error } = await searchParams;
 
-  return <LoginForm resetSuccess={reset === "success"} />;
+  return <LoginForm resetSuccess={reset === "success"} signupExpired={error === "signup-expired"} />;
 }
