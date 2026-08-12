@@ -5,7 +5,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { TodaysJobsWidget, type TodayJob } from "@/components/dashboard/todays-jobs-widget";
 import {
   NeedsAttentionWidget,
-  type StalledJob,
+  type AttentionItem,
 } from "@/components/dashboard/needs-attention-widget";
 import {
   RecentActivityWidget,
@@ -42,18 +42,44 @@ interface TodayVisitRow {
 
 function selectStalledJobs(
   jobs: Pick<JobRow, "id" | "job_status" | "invoice_status" | "updated_at" | "properties">[],
-): StalledJob[] {
+): Extract<AttentionItem, { kind: "stalled_job" }>[] {
   const now = Date.now();
   return jobs
     .filter((job) => isJobOpen(job.job_status, job.invoice_status))
     .filter((job) => now - new Date(job.updated_at).getTime() > STALE_AFTER_MS)
     .slice(0, 5)
     .map((job) => ({
-      id: job.id,
-      job_status: job.job_status,
-      updated_at: job.updated_at,
-      property_address: job.properties?.address ?? "Unknown property",
+      kind: "stalled_job" as const,
+      jobId: job.id,
+      jobStatus: job.job_status,
+      invoiceStatus: job.invoice_status,
+      updatedAt: job.updated_at,
+      propertyAddress: job.properties?.address ?? "Unknown property",
     }));
+}
+
+interface SentQuoteRow {
+  id: string;
+  quote_number: string;
+  total: number;
+  updated_at: string;
+  jobs: { properties: { address: string; customers: { name: string } | null } | null } | null;
+}
+
+// Sent (not Draft) and not yet Accepted/Rejected -- genuinely waiting on the
+// customer, which is what "Needs Attention" should actually mean.
+function selectQuotesAwaitingApproval(
+  quotes: SentQuoteRow[],
+): Extract<AttentionItem, { kind: "quote_awaiting_approval" }>[] {
+  return quotes.map((quote) => ({
+    kind: "quote_awaiting_approval" as const,
+    quoteId: quote.id,
+    quoteNumber: quote.quote_number,
+    customerName: quote.jobs?.properties?.customers?.name ?? null,
+    propertyAddress: quote.jobs?.properties?.address ?? "Unknown property",
+    amount: quote.total,
+    sentAt: quote.updated_at,
+  }));
 }
 
 export default async function DashboardPage() {
@@ -70,6 +96,7 @@ export default async function DashboardPage() {
     recentJobsRes,
     recentDocsRes,
     recentQuotesRes,
+    sentQuotesRes,
     notesRes,
   ] = await Promise.all([
     getCurrentProfile(user!.id),
@@ -126,6 +153,13 @@ export default async function DashboardPage() {
         }[]
       >(),
     supabase
+      .from("quotes")
+      .select("id, quote_number, total, updated_at, jobs(properties(address, customers(name)))")
+      .eq("status", "Sent")
+      .order("updated_at", { ascending: true })
+      .limit(10)
+      .returns<SentQuoteRow[]>(),
+    supabase
       .from("personal_note_items")
       .select("id, text, is_checked, position")
       .eq("user_id", user!.id)
@@ -146,7 +180,13 @@ export default async function DashboardPage() {
       contact_name: visit.jobs!.contacts?.name ?? null,
     }));
 
-  const stalledJobs = selectStalledJobs(openJobsRes.data ?? []);
+  // Quotes waiting on the customer take priority (a clear, actionable
+  // follow-up) over generically stalled jobs, then cap the combined list so
+  // the widget stays a quick glance rather than a second task list.
+  const attentionItems: AttentionItem[] = [
+    ...selectQuotesAwaitingApproval(sentQuotesRes.data ?? []),
+    ...selectStalledJobs(openJobsRes.data ?? []),
+  ].slice(0, 6);
 
   const jobActivity: ActivityItem[] = (recentJobsRes.data ?? []).map((job) => ({
     id: job.id,
@@ -195,7 +235,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2">
         <TodaysJobsWidget jobs={todayJobs} />
-        <NeedsAttentionWidget jobs={stalledJobs} />
+        <NeedsAttentionWidget items={attentionItems} />
         <RecentActivityWidget items={recentActivity} />
         <div className="flex flex-col gap-4">
           <PersonalNotesWidget initialItems={notesRes.data ?? []} />
