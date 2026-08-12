@@ -5,7 +5,13 @@ import Link from "next/link";
 import { PlatformLogo } from "@/components/platform-logo";
 import { signIn } from "./actions";
 
-export function LoginForm({ resetSuccess }: { resetSuccess: boolean }) {
+export function LoginForm({
+  resetSuccess,
+  signupExpired,
+}: {
+  resetSuccess: boolean;
+  signupExpired: boolean;
+}) {
   const [error, formAction, pending] = useActionState(signIn, null);
 
   return (
@@ -21,6 +27,17 @@ export function LoginForm({ resetSuccess }: { resetSuccess: boolean }) {
         {resetSuccess ? (
           <p className="mb-4 rounded-lg bg-green-50 px-3 py-2.5 text-sm text-green-700 dark:bg-green-500/10 dark:text-green-400">
             Password changed. Sign in with your new password.
+          </p>
+        ) : null}
+
+        {signupExpired ? (
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+            That confirmation link has expired or was already used. Please{" "}
+            <Link href="/signup" className="font-medium underline">
+              sign up again
+            </Link>{" "}
+            to get a fresh one — make sure to open the email link in the same browser you signed
+            up with.
           </p>
         ) : null}
 

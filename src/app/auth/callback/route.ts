@@ -6,11 +6,16 @@ import { createClient } from "@/lib/supabase/server";
 // in the link for a real session, then hands off to `next`. A failed
 // exchange means the link was already used or has expired -- send them
 // back to request a fresh one rather than leaving them stuck on a broken
-// link.
+// link. next === "/" only ever happens for the signup-confirmation flow
+// (see signup/actions.ts) -- password reset always sets next to
+// /reset-password -- so that's also the signal for which "expired" landing
+// page actually makes sense: someone whose signup link died has no
+// password to reset yet, so send them back to sign up again instead.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
+  const isSignupFlow = next === "/";
 
   if (code) {
     const supabase = await createClient();
@@ -36,5 +41,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/forgot-password?error=expired`);
+  return NextResponse.redirect(
+    isSignupFlow ? `${origin}/login?error=signup-expired` : `${origin}/forgot-password?error=expired`,
+  );
 }
