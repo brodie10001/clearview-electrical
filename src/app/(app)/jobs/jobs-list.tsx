@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MoreVertical } from "lucide-react";
+import { clsx } from "clsx";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Toast } from "@/components/ui/toast";
@@ -119,7 +120,9 @@ export function JobsList({ jobs: initialJobs }: { jobs: JobListRow[] }) {
 
 function JobRow({ job, onRequestDelete }: { job: JobListRow; onRequestDelete: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -130,6 +133,22 @@ function JobRow({ job, onRequestDelete }: { job: JobListRow; onRequestDelete: ()
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
+
+  // Flip the dropdown to open upward when there isn't room below the
+  // trigger -- e.g. a row near the bottom of a long list -- so its options
+  // stay fully visible and tappable instead of clipping past the viewport
+  // edge. Runs before paint so there's no visible flicker.
+  useLayoutEffect(() => {
+    if (!menuOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets flip state for the next open; depends on menuOpen itself, can't be derived during render
+      setOpenUpward(false);
+      return;
+    }
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (rect && rect.bottom > window.innerHeight) {
+      setOpenUpward(true);
+    }
   }, [menuOpen]);
 
   return (
@@ -167,7 +186,13 @@ function JobRow({ job, onRequestDelete }: { job: JobListRow; onRequestDelete: ()
           <MoreVertical className="h-4 w-4" />
         </button>
         {menuOpen ? (
-          <div className="absolute top-full right-0 z-10 mt-1 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+          <div
+            ref={panelRef}
+            className={clsx(
+              "absolute right-0 z-10 w-40 overflow-hidden rounded-lg border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-900",
+              openUpward ? "bottom-full mb-1" : "top-full mt-1",
+            )}
+          >
             <button
               type="button"
               onClick={() => {
