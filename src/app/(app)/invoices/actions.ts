@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAcceptedQuote } from "@/lib/quotes";
 import { dueDateFromTerms } from "@/lib/payment-terms";
 import { todayDateString } from "@/lib/format";
+import { generateShareToken } from "@/lib/tokens";
 import type { PaymentTerms, InvoiceAmountType, InvoiceRecordStatus } from "@/types/database";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -189,4 +190,47 @@ export async function deletePayment(paymentId: string, invoiceId: string, jobId:
   const supabase = await createClient();
   await supabase.from("payments").delete().eq("id", paymentId);
   revalidateInvoice(invoiceId, jobId);
+}
+
+export async function getOrCreateInvoiceShareToken(invoiceId: string): Promise<string> {
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("invoice_public_tokens")
+    .select("token")
+    .eq("invoice_id", invoiceId)
+    .maybeSingle();
+
+  if (existing?.token) return existing.token;
+
+  const token = generateShareToken();
+  const { error } = await supabase
+    .from("invoice_public_tokens")
+    .insert({ invoice_id: invoiceId, token });
+
+  if (error) throw new Error(error.message);
+  return token;
+}
+
+// Same "sharing = sending" convention as shareQuote: a Draft invoice moves
+// to Sent the moment a link exists to share, rather than needing a
+// separate manual status flip afterward. Paid/Partially Paid/Overdue are
+// already handled elsewhere (payments trigger, cron); this only ever
+// touches a Draft invoice.
+export async function shareInvoice(invoiceId: string, jobId: string): Promise<{ token: string }> {
+  const supabase = await createClient();
+  const token = await getOrCreateInvoiceShareToken(invoiceId);
+
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("status")
+    .eq("id", invoiceId)
+    .single();
+
+  if (invoice?.status === "Draft") {
+    await supabase.from("invoices").update({ status: "Sent" }).eq("id", invoiceId);
+  }
+
+  revalidateInvoice(invoiceId, jobId);
+  return { token };
 }

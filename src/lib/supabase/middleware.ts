@@ -64,11 +64,14 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup");
-  // The public quote-sharing page and its PDF have no login -- they do their
-  // own authorization via an unguessable token, scoped to a single quote.
+  // The public quote/invoice-sharing pages and their PDFs have no login --
+  // they do their own authorization via an unguessable token, scoped to a
+  // single quote or invoice.
   const isPublicQuoteRoute =
     request.nextUrl.pathname.startsWith("/q/") ||
-    request.nextUrl.pathname.startsWith("/api/q/");
+    request.nextUrl.pathname.startsWith("/api/q/") ||
+    request.nextUrl.pathname.startsWith("/i/") ||
+    request.nextUrl.pathname.startsWith("/api/i/");
   // Password reset has to work for someone who is, by definition, not
   // signed in: requesting the email and exchanging the emailed link's code
   // for a (recovery) session both happen before any session cookie exists.
