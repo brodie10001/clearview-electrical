@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Plus, X } from "lucide-react";
-import { inviteStaffMember, updateStaffRole, setStaffActive } from "./team-actions";
+import { inviteStaffMember, updateStaffRole, setStaffActive, removeStaffMember } from "./team-actions";
 import type { TeamMemberData } from "./page";
 import type { ProfileRole } from "@/types/database";
 
@@ -49,6 +49,7 @@ function MemberRow({
   const [, startTransition] = useTransition();
   const [role, setRole] = useState(member.role);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   function changeRole(value: ProfileRole) {
     const previous = role;
@@ -68,6 +69,21 @@ function MemberRow({
     startTransition(async () => {
       const result = await setStaffActive(member.id, !member.active);
       if (result.error) setError(result.error);
+    });
+  }
+
+  function remove() {
+    if (!confirmingRemove) {
+      setConfirmingRemove(true);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await removeStaffMember(member.id);
+      if (result.error) {
+        setError(result.error);
+        setConfirmingRemove(false);
+      }
     });
   }
 
@@ -101,6 +117,17 @@ function MemberRow({
               className="text-xs font-medium text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
             >
               {member.active ? "Deactivate" : "Reactivate"}
+            </button>
+            <button
+              onClick={remove}
+              onBlur={() => setConfirmingRemove(false)}
+              className={
+                confirmingRemove
+                  ? "text-xs font-medium text-red-600 dark:text-red-400"
+                  : "text-xs font-medium text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+              }
+            >
+              {confirmingRemove ? "Confirm remove?" : "Remove"}
             </button>
           </div>
         ) : (
