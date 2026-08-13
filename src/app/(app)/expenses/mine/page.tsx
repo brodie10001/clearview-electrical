@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Receipt as ReceiptIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/request-user";
 import { formatDate } from "@/lib/format";
 
 interface ExpenseListRow {
@@ -10,21 +11,21 @@ interface ExpenseListRow {
   amount: number;
   receipt_url: string | null;
   expense_categories: { name: string } | null;
-  suppliers: { name: string } | null;
   jobs: { properties: { address: string; customers: { name: string } | null } | null } | null;
-  profiles: { full_name: string | null; email: string | null } | null;
 }
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 
-export default async function FinancesExpensesPage() {
+export default async function MyExpensesPage() {
   const supabase = await createClient();
+  const user = await getRequestUser();
 
   const { data: expenses } = await supabase
     .from("expenses")
     .select(
-      "id, date, description, amount, receipt_url, expense_categories(name), suppliers(name), jobs(properties(address, customers(name))), profiles(full_name, email)",
+      "id, date, description, amount, receipt_url, expense_categories(name), jobs(properties(address, customers(name)))",
     )
+    .eq("created_by", user!.id)
     .order("date", { ascending: false })
     .returns<ExpenseListRow[]>();
 
@@ -44,18 +45,21 @@ export default async function FinancesExpensesPage() {
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
       <Link
-        href="/finances"
+        href="/jobs"
         className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-amber-600"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Finances
+        <ArrowLeft className="h-3.5 w-3.5" /> Jobs
       </Link>
-      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">Expenses</h1>
+      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">My Expenses</h1>
       <p className="text-sm text-neutral-500">
-        {rows.length} expense{rows.length === 1 ? "" : "s"} recorded · ${total.toFixed(2)} total
+        {rows.length} expense{rows.length === 1 ? "" : "s"} you&apos;ve logged · ${total.toFixed(2)}{" "}
+        total
       </p>
 
       {withSignedReceipts.length === 0 ? (
-        <p className="py-10 text-center text-sm text-neutral-500">No expenses recorded yet.</p>
+        <p className="py-10 text-center text-sm text-neutral-500">
+          You haven&apos;t logged any expenses yet.
+        </p>
       ) : (
         <ul className="flex flex-col divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
           {withSignedReceipts.map((expense) => (
@@ -72,13 +76,10 @@ export default async function FinancesExpensesPage() {
                 </p>
                 <p className="truncate text-xs text-neutral-500">
                   {expense.expense_categories?.name ?? "Uncategorised"}
-                  {expense.suppliers?.name ? ` · ${expense.suppliers.name}` : ""}
                   {" · "}
                   {expense.jobs?.properties?.customers?.name
                     ? `${expense.jobs.properties.customers.name} — ${expense.jobs.properties.address}`
                     : "General/overhead"}
-                  {" · Added by "}
-                  {expense.profiles?.full_name || expense.profiles?.email || "Unknown"}
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">

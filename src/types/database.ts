@@ -805,6 +805,7 @@ export interface Database {
           receipt_url: string | null;
           notes: string | null;
           created_at: string;
+          created_by: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["expenses"]["Row"]> & {
           description: string;
