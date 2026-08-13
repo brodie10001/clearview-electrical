@@ -119,3 +119,30 @@ export async function setStaffActive(profileId: string, active: boolean): Promis
   revalidatePath("/settings/business");
   return { error: null };
 }
+
+// Deleting the auth.users row (rather than just the profile) is what frees
+// the email address up for a fresh invite -- profiles.id has "on delete
+// cascade" from auth.users, so this also removes the profile row. Uses the
+// service client because deleting an auth user requires the admin API.
+export async function removeStaffMember(profileId: string): Promise<{ error: string | null }> {
+  const { userId, businessId } = await requireAdmin();
+
+  if (profileId === userId) {
+    return { error: "You can't remove yourself." };
+  }
+
+  const supabase = await createClient();
+  try {
+    const { data: target } = await supabase.from("profiles").select("role").eq("id", profileId).single();
+    if (target?.role === "owner") await assertNotLastOwner(businessId, profileId);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to remove." };
+  }
+
+  const serviceClient = createServiceClient();
+  const { error } = await serviceClient.auth.admin.deleteUser(profileId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings/business");
+  return { error: null };
+}
