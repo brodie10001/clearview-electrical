@@ -2,7 +2,7 @@
 -- request / general note; only a platform admin (Brodie -- never a
 -- self-service role) can read any of it back, across every business.
 -- Its own module table, not bolted onto jobs/properties/businesses, since
--- it isn't a trade concept at all -- it's a Tradeline-platform concern.
+-- it isn't a trade concept at all -- it's a Ralden-platform concern.
 
 alter table public.profiles
   add column is_platform_admin boolean not null default false;
