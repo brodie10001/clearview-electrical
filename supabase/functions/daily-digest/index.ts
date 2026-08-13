@@ -258,6 +258,21 @@ Deno.serve(async (req) => {
   // the caller to present the project's own service role key as a bearer
   // token -- exactly what the cron job's net.http_post call sends -- before
   // it will touch any business's data.
+  const receivedAuth = req.headers.get("Authorization") ?? "";
+  const receivedToken = receivedAuth.replace(/^Bearer /, "");
+  // TEMPORARY DEBUG -- prefixes/suffixes only, never the full secret -- to
+  // directly compare the env secret against what's actually arriving.
+  console.error(
+    "daily-digest auth debug v2:",
+    JSON.stringify({
+      envKeyLength: SERVICE_ROLE_KEY?.length ?? 0,
+      envKeyStart: SERVICE_ROLE_KEY?.slice(0, 12) ?? null,
+      envKeyEnd: SERVICE_ROLE_KEY?.slice(-12) ?? null,
+      receivedTokenLength: receivedToken.length,
+      receivedTokenStart: receivedToken.slice(0, 12),
+      receivedTokenEnd: receivedToken.slice(-12),
+    }),
+  );
   if (!SERVICE_ROLE_KEY || req.headers.get("Authorization") !== `Bearer ${SERVICE_ROLE_KEY}`) {
     return new Response("Unauthorized", { status: 401 });
   }
