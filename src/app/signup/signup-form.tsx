@@ -103,7 +103,7 @@ export function SignupForm() {
           </h1>
           <p className="text-center text-sm text-neutral-500">
             Set up a fresh workspace for your business -- separate and private from every other
-            business on Tradeline.
+            business on Ralden.
           </p>
         </div>
 

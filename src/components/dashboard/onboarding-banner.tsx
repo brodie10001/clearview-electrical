@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { X, Sparkles } from "lucide-react";
 
-const DISMISSED_KEY = "tradeline:onboarding-banner-dismissed";
+const DISMISSED_KEY = "ralden:onboarding-banner-dismissed";
 
 const listeners = new Set<() => void>();
 function subscribe(listener: () => void) {

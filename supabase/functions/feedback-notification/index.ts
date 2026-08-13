@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     await client.send({
       from: SMTP_USER,
       to: ADMIN_EMAIL,
-      subject: `[Tradeline feedback] ${feedback.type}: ${feedback.title}`,
+      subject: `[Ralden feedback] ${feedback.type}: ${feedback.title}`,
       content: `New ${feedback.type} from ${feedback.business_name} (${feedback.submitted_by_name})\n\n${feedback.title}\n\n${feedback.description}\n\nPage: ${feedback.page_path ?? "unknown"}\nSubmitted: ${submittedAt}\n\nView in admin: ${link}`,
       html: `
         <p><strong>${escapeHtml(feedback.type)}</strong> from ${escapeHtml(feedback.business_name)} (${escapeHtml(feedback.submitted_by_name)})</p>
