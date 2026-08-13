@@ -16,9 +16,15 @@ import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { todayDateString } from "@/lib/format";
 import { isJobOpen } from "@/lib/job-status";
-import type { JobStatus, InvoiceStatus } from "@/types/database";
+import type { JobStatus, InvoiceStatus, InvoiceRecordStatus } from "@/types/database";
 
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
+
+// Same rule the daily digest email uses (supabase/functions/daily-digest) --
+// due_date has passed and the invoice isn't in a state where "overdue"
+// stops meaning anything. Keep these in sync: the whole point of surfacing
+// this in-app is that it must never disagree with what the email reports.
+const NOT_OVERDUE_STATUSES = new Set<InvoiceRecordStatus>(["Paid", "Void", "Written Off"]);
 
 interface JobRow {
   id: string;
@@ -55,6 +61,42 @@ function selectStalledJobs(
       invoiceStatus: job.invoice_status,
       updatedAt: job.updated_at,
       propertyAddress: job.properties?.address ?? "Unknown property",
+    }));
+}
+
+// due_date/today are plain date strings (no timezone) -- parsed via UTC
+// arithmetic only, same convention as formatVisitDate/daysBetween in the
+// digest function, so this can't drift a day off depending on server tz.
+function daysOverdue(dueDate: string, today: string) {
+  const [fy, fm, fd] = dueDate.split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  const dueMs = Date.UTC(fy, fm - 1, fd);
+  const todayMs = Date.UTC(ty, tm - 1, td);
+  return Math.round((todayMs - dueMs) / 86_400_000);
+}
+
+interface OverdueInvoiceRow {
+  id: string;
+  invoice_number: string;
+  amount: number;
+  due_date: string;
+  status: InvoiceRecordStatus;
+  jobs: { properties: { customers: { name: string } | null } | null } | null;
+}
+
+function selectOverdueInvoices(
+  invoices: OverdueInvoiceRow[],
+  today: string,
+): Extract<AttentionItem, { kind: "overdue_invoice" }>[] {
+  return invoices
+    .filter((invoice) => !NOT_OVERDUE_STATUSES.has(invoice.status))
+    .map((invoice) => ({
+      kind: "overdue_invoice" as const,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      customerName: invoice.jobs?.properties?.customers?.name ?? null,
+      amount: invoice.amount,
+      daysOverdue: daysOverdue(invoice.due_date, today),
     }));
 }
 
@@ -97,6 +139,7 @@ export default async function DashboardPage() {
     recentDocsRes,
     recentQuotesRes,
     sentQuotesRes,
+    overdueInvoicesRes,
     notesRes,
   ] = await Promise.all([
     getCurrentProfile(user!.id),
@@ -160,6 +203,14 @@ export default async function DashboardPage() {
       .limit(10)
       .returns<SentQuoteRow[]>(),
     supabase
+      .from("invoices")
+      .select("id, invoice_number, amount, due_date, status, jobs(properties(customers(name)))")
+      .lt("due_date", today)
+      .not("status", "in", '("Paid","Void","Written Off")')
+      .order("due_date", { ascending: true })
+      .limit(10)
+      .returns<OverdueInvoiceRow[]>(),
+    supabase
       .from("personal_note_items")
       .select("id, text, is_checked, position")
       .eq("user_id", user!.id)
@@ -180,10 +231,12 @@ export default async function DashboardPage() {
       contact_name: visit.jobs!.contacts?.name ?? null,
     }));
 
-  // Quotes waiting on the customer take priority (a clear, actionable
-  // follow-up) over generically stalled jobs, then cap the combined list so
-  // the widget stays a quick glance rather than a second task list.
+  // Overdue invoices (money already owed) lead, then quotes waiting on the
+  // customer (a clear, actionable follow-up), then generically stalled
+  // jobs -- capped so the widget stays a quick glance rather than a second
+  // task list.
   const attentionItems: AttentionItem[] = [
+    ...selectOverdueInvoices(overdueInvoicesRes.data ?? [], today),
     ...selectQuotesAwaitingApproval(sentQuotesRes.data ?? []),
     ...selectStalledJobs(openJobsRes.data ?? []),
   ].slice(0, 6);
