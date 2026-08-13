@@ -1029,6 +1029,8 @@ export interface Database {
           due_date: string;
           status: InvoiceRecordStatus;
           created_at: string;
+          customer_response: "Accepted" | "Declined" | null;
+          customer_response_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["invoices"]["Row"]> & {
           job_id: string;

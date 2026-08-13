@@ -3,6 +3,7 @@ import { Download } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getAcceptedQuote } from "@/lib/quotes";
 import { formatDate } from "@/lib/format";
+import { CustomerResponse } from "./customer-response";
 import type {
   InvoiceRecordStatus,
   PaymentTerms,
@@ -19,6 +20,8 @@ interface PublicInvoice {
   payment_terms: PaymentTerms;
   status: InvoiceRecordStatus;
   job_id: string;
+  customer_response: "Accepted" | "Declined" | null;
+  customer_response_at: string | null;
   jobs: {
     properties: {
       address: string;
@@ -94,7 +97,7 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
     supabase
       .from("invoices")
       .select(
-        "id, invoice_number, stage_label, amount, due_date, payment_terms, status, job_id, jobs(properties(address, customers(name, billing_address)))",
+        "id, invoice_number, stage_label, amount, due_date, payment_terms, status, job_id, customer_response, customer_response_at, jobs(properties(address, customers(name, billing_address)))",
       )
       .eq("id", invoiceId)
       .single()
@@ -311,6 +314,12 @@ export default async function PublicInvoicePage({ params }: { params: Promise<{ 
                 <span>{money(invoice.amount)}</span>
               </div>
             </div>
+
+            <CustomerResponse
+              token={token}
+              initialResponse={invoice.customer_response}
+              initialRespondedAt={invoice.customer_response_at}
+            />
 
             <a
               href={`/api/i/${token}/pdf`}
