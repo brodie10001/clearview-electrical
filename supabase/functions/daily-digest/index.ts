@@ -17,7 +17,17 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+// Deliberately NOT the platform-auto-injected SUPABASE_SERVICE_ROLE_KEY --
+// on this project that env var doesn't match the long-format JWT service
+// role key shown on the API settings page (Supabase's runtime-injected
+// value uses a newer, shorter key format than what's copyable from the
+// dashboard). Since the cron job in the migration sends the long-format
+// JWT it can only get from Supabase Vault, this function is instead given
+// that exact same value as its own explicit secret, so the two are
+// guaranteed to match regardless of what format Supabase injects by
+// default. Set via: supabase secrets set PROJECT_SERVICE_ROLE_KEY=<the
+// same value stored in Vault under 'service_role_key'>.
+const SERVICE_ROLE_KEY = Deno.env.get("PROJECT_SERVICE_ROLE_KEY")?.trim();
 const APP_URL = Deno.env.get("APP_URL")?.trim();
 const SMTP_HOST = Deno.env.get("GMAIL_SMTP_HOST")?.trim() ?? "smtp.gmail.com";
 const SMTP_USER = Deno.env.get("GMAIL_SMTP_USER")?.trim();
@@ -248,20 +258,7 @@ Deno.serve(async (req) => {
   // the caller to present the project's own service role key as a bearer
   // token -- exactly what the cron job's net.http_post call sends -- before
   // it will touch any business's data.
-  const receivedAuth = req.headers.get("Authorization");
-  // TEMPORARY DEBUG -- lengths only, never the actual secret values -- to
-  // diagnose a 401 that persisted even after rotating the Vault secret.
-  console.error(
-    "daily-digest auth debug:",
-    JSON.stringify({
-      hasServiceRoleKeyEnv: Boolean(SERVICE_ROLE_KEY),
-      serviceRoleKeyEnvLength: SERVICE_ROLE_KEY?.length ?? 0,
-      hasAuthHeader: Boolean(receivedAuth),
-      authHeaderLength: receivedAuth?.length ?? 0,
-      match: receivedAuth === `Bearer ${SERVICE_ROLE_KEY}`,
-    }),
-  );
-  if (!SERVICE_ROLE_KEY || receivedAuth !== `Bearer ${SERVICE_ROLE_KEY}`) {
+  if (!SERVICE_ROLE_KEY || req.headers.get("Authorization") !== `Bearer ${SERVICE_ROLE_KEY}`) {
     return new Response("Unauthorized", { status: 401 });
   }
 
