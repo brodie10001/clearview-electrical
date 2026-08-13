@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, CalendarDays, Archive } from "lucide-react";
+import { Plus, CalendarDays, Archive, Receipt } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { clsx } from "clsx";
 import { todayDateString } from "@/lib/format";
@@ -119,6 +119,13 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
           >
             <CalendarDays className="h-4 w-4" />
             Calendar
+          </Link>
+          <Link
+            href="/expenses/mine"
+            className="flex items-center gap-1.5 rounded-full border border-neutral-200 px-3.5 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            <Receipt className="h-4 w-4" />
+            My Expenses
           </Link>
           <AddExpenseButton />
           <Link
