@@ -25,7 +25,7 @@ export default async function FinancesExpensesPage() {
     .select(
       "id, date, description, amount, receipt_url, expense_categories(name), suppliers(name), jobs(properties(address, customers(name))), profiles(full_name, email)",
     )
-    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
     .returns<ExpenseListRow[]>();
 
   const rows = expenses ?? [];

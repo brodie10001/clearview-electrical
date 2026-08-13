@@ -26,7 +26,7 @@ export default async function MyExpensesPage() {
       "id, date, description, amount, receipt_url, expense_categories(name), jobs(properties(address, customers(name)))",
     )
     .eq("created_by", user!.id)
-    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
     .returns<ExpenseListRow[]>();
 
   const rows = expenses ?? [];
