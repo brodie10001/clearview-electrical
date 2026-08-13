@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Palette, Clock, Package, CalendarRange, ShieldCheck, Truck, BookOpen } from "lucide-react";
+import { Palette, Clock, Package, CalendarRange, ShieldCheck, Truck, BookOpen, Users } from "lucide-react";
 import { BrandingForm } from "./branding-form";
 import { NumberingSection } from "./numbering-section";
 import { LabourRatesSection } from "./labour-rates-section";
@@ -12,6 +12,7 @@ import { TestTypesSection } from "./test-types-section";
 import { ComplianceDocumentTemplatesSection } from "./compliance-document-templates-section";
 import { SuppliersSection } from "./suppliers-section";
 import { PriceBookSection } from "./price-book-section";
+import { TeamSection } from "./team-section";
 import type {
   BusinessSettings,
   LabourRateType,
@@ -25,10 +26,12 @@ import type {
   SupplierProductPriceData,
   PriceBookItemData,
   PriceBookItemMaterialData,
+  TeamMemberData,
 } from "./page";
 
 const TABS = [
   { key: "branding", label: "Branding & Details", icon: Palette },
+  { key: "team", label: "Team", icon: Users },
   { key: "rates", label: "Labour Rates", icon: Clock },
   { key: "materials", label: "Materials Catalogue", icon: Package },
   { key: "priceBook", label: "Price Book", icon: BookOpen },
@@ -52,6 +55,8 @@ export function BusinessSettingsTabs({
   supplierPrices,
   priceBookItems,
   priceBookItemMaterials,
+  teamMembers,
+  currentUserId,
   canEdit,
 }: {
   settings: BusinessSettings;
@@ -66,6 +71,8 @@ export function BusinessSettingsTabs({
   supplierPrices: SupplierProductPriceData[];
   priceBookItems: PriceBookItemData[];
   priceBookItemMaterials: PriceBookItemMaterialData[];
+  teamMembers: TeamMemberData[];
+  currentUserId: string;
   canEdit: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>("branding");
@@ -107,6 +114,9 @@ export function BusinessSettingsTabs({
               <NumberingSection settings={settings} canEdit={canEdit} />
             </div>
           </div>
+        ) : null}
+        {tab === "team" ? (
+          <TeamSection teamMembers={teamMembers} currentUserId={currentUserId} canEdit={canEdit} />
         ) : null}
         {tab === "rates" ? (
           <LabourRatesSection rateTypes={rateTypes} canEdit={canEdit} />
