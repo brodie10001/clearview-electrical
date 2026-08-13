@@ -248,7 +248,20 @@ Deno.serve(async (req) => {
   // the caller to present the project's own service role key as a bearer
   // token -- exactly what the cron job's net.http_post call sends -- before
   // it will touch any business's data.
-  if (!SERVICE_ROLE_KEY || req.headers.get("Authorization") !== `Bearer ${SERVICE_ROLE_KEY}`) {
+  const receivedAuth = req.headers.get("Authorization");
+  // TEMPORARY DEBUG -- lengths only, never the actual secret values -- to
+  // diagnose a 401 that persisted even after rotating the Vault secret.
+  console.error(
+    "daily-digest auth debug:",
+    JSON.stringify({
+      hasServiceRoleKeyEnv: Boolean(SERVICE_ROLE_KEY),
+      serviceRoleKeyEnvLength: SERVICE_ROLE_KEY?.length ?? 0,
+      hasAuthHeader: Boolean(receivedAuth),
+      authHeaderLength: receivedAuth?.length ?? 0,
+      match: receivedAuth === `Bearer ${SERVICE_ROLE_KEY}`,
+    }),
+  );
+  if (!SERVICE_ROLE_KEY || receivedAuth !== `Bearer ${SERVICE_ROLE_KEY}`) {
     return new Response("Unauthorized", { status: 401 });
   }
 
