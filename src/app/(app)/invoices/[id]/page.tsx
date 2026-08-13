@@ -19,6 +19,8 @@ export interface InvoiceDetailData {
   due_date: string;
   status: InvoiceRecordStatus;
   created_at: string;
+  customer_response: "Accepted" | "Declined" | null;
+  customer_response_at: string | null;
   jobs: {
     id: string;
     properties: { address: string; customers: { name: string } | null } | null;
@@ -41,7 +43,7 @@ export default async function InvoiceDetailPage({ params }: PageProps<"/invoices
     supabase
       .from("invoices")
       .select(
-        "id, job_id, invoice_number, stage_label, amount_type, percentage, amount, issue_date, payment_terms, due_date, status, created_at, jobs(id, properties(address, customers(name)))",
+        "id, job_id, invoice_number, stage_label, amount_type, percentage, amount, issue_date, payment_terms, due_date, status, created_at, customer_response, customer_response_at, jobs(id, properties(address, customers(name)))",
       )
       .eq("id", id)
       .single()

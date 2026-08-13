@@ -105,7 +105,7 @@ export function InvoiceBuilder({
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-neutral-500">Status</label>
             {DERIVED_STATUSES.has(status) ? (
@@ -148,6 +148,32 @@ export function InvoiceBuilder({
             <p className="rounded-lg border border-transparent px-2.5 py-1.5 text-sm text-neutral-900 dark:text-neutral-50">
               {formatDate(invoice.due_date)}
             </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-neutral-500">Customer response</label>
+            {invoice.customer_response ? (
+              <div className="flex h-[38px] items-center gap-1.5">
+                <span
+                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
+                    invoice.customer_response === "Accepted"
+                      ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
+                      : "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400"
+                  }`}
+                >
+                  {invoice.customer_response}
+                </span>
+                {invoice.customer_response_at ? (
+                  <span className="text-xs text-neutral-400">
+                    {formatDate(invoice.customer_response_at)}
+                  </span>
+                ) : null}
+              </div>
+            ) : (
+              <p className="flex h-[38px] items-center text-sm text-neutral-400">
+                Not yet responded
+              </p>
+            )}
           </div>
         </div>
       </section>
