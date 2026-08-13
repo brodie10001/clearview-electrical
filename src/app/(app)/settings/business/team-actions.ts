@@ -52,7 +52,7 @@ export async function inviteStaffMember(formData: FormData): Promise<{ error: st
       invited_role: role,
       full_name: fullName || null,
     },
-    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    redirectTo: `${origin}/accept-invite`,
   });
 
   if (error) return { error: error.message };
