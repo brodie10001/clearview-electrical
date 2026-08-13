@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getRequestUser } from "@/lib/supabase/request-user";
 import { BusinessSettingsTabs } from "./business-settings-tabs";
-import type { CompanyFont, PaymentTerms, ComplianceFieldDef } from "@/types/database";
+import type { CompanyFont, PaymentTerms, ComplianceFieldDef, ProfileRole } from "@/types/database";
 
 export interface BusinessSettings {
   trading_name: string | null;
@@ -131,6 +131,15 @@ export interface PriceBookItemMaterialData {
   quantity: number;
 }
 
+export interface TeamMemberData {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: ProfileRole;
+  active: boolean;
+  accepted_at: string | null;
+}
+
 export default async function BusinessSettingsPage() {
   const supabase = await createClient();
   const user = await getRequestUser();
@@ -149,6 +158,7 @@ export default async function BusinessSettingsPage() {
     supplierPricesRes,
     priceBookItemsRes,
     priceBookItemMaterialsRes,
+    teamMembersRes,
   ] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user!.id).single(),
     supabase.from("business_settings").select("*").single(),
@@ -211,6 +221,11 @@ export default async function BusinessSettingsPage() {
       .from("price_book_item_materials")
       .select("id, price_book_item_id, catalogue_product_id, quantity")
       .returns<PriceBookItemMaterialData[]>(),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email, role, active, accepted_at")
+      .order("created_at")
+      .returns<TeamMemberData[]>(),
   ]);
 
   const canEdit = profileRes.data?.role === "owner" || profileRes.data?.role === "admin";
@@ -241,6 +256,8 @@ export default async function BusinessSettingsPage() {
           supplierPrices={supplierPricesRes.data ?? []}
           priceBookItems={priceBookItemsRes.data ?? []}
           priceBookItemMaterials={priceBookItemMaterialsRes.data ?? []}
+          teamMembers={teamMembersRes.data ?? []}
+          currentUserId={user!.id}
           canEdit={canEdit}
         />
       ) : (
