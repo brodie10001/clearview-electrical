@@ -48,7 +48,21 @@ sending.
    run time (`vault.decrypted_secrets`), so it works unmodified once these
    two secrets exist.
 
-4. **Confirm the schedule exists**: `select * from cron.job;` should show a
+4. **Set `PROJECT_SERVICE_ROLE_KEY` to that exact same value**:
+
+   ```
+   supabase secrets set PROJECT_SERVICE_ROLE_KEY=<the same service role key you just put in Vault>
+   ```
+
+   The function checks incoming requests against this secret rather than
+   the platform's auto-injected `SUPABASE_SERVICE_ROLE_KEY` -- on some
+   projects that auto-injected value uses a different (newer, shorter) key
+   format than the long-format JWT shown on the API settings page and
+   storable in Vault, which would make the two never match. Setting this
+   explicitly guarantees the cron job's bearer token and what the function
+   checks against are the exact same string.
+
+5. **Confirm the schedule exists**: `select * from cron.job;` should show a
    `daily-digest-emails` row running `0 6 * * *` (06:00 UTC).
 
 ## Verifying
