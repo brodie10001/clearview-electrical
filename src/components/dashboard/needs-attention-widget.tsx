@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { AlertTriangle, FileClock } from "lucide-react";
+import { AlertTriangle, FileClock, Receipt } from "lucide-react";
 import { WidgetCard } from "./widget-card";
 import { JobStatusBadge } from "@/components/ui/status-badge";
 import { formatRelative } from "@/lib/format";
 import type { JobStatus, InvoiceStatus } from "@/types/database";
 
 // Each kind of thing a contractor might need to follow up on. Adding a new
-// state (overdue invoices, jobs completed but not invoiced, quotes nearing
-// expiry, ...) means adding a union member here and a case in ItemRow below
-// -- the widget itself and its sorting/rendering shell don't change.
+// state (jobs completed but not invoiced, quotes nearing expiry, ...) means
+// adding a union member here and a case in ItemRow below -- the widget
+// itself and its sorting/rendering shell don't change.
 export type AttentionItem =
   | {
       kind: "stalled_job";
@@ -26,17 +26,48 @@ export type AttentionItem =
       propertyAddress: string;
       amount: number;
       sentAt: string;
+    }
+  | {
+      kind: "overdue_invoice";
+      invoiceId: string;
+      invoiceNumber: string;
+      customerName: string | null;
+      amount: number;
+      daysOverdue: number;
     };
 
 function itemKey(item: AttentionItem) {
-  return item.kind === "stalled_job" ? `stalled_job-${item.jobId}` : `quote_awaiting_approval-${item.quoteId}`;
+  if (item.kind === "stalled_job") return `stalled_job-${item.jobId}`;
+  if (item.kind === "quote_awaiting_approval") return `quote_awaiting_approval-${item.quoteId}`;
+  return `overdue_invoice-${item.invoiceId}`;
 }
 
 function itemHref(item: AttentionItem) {
-  return item.kind === "stalled_job" ? `/jobs/${item.jobId}` : `/quotes/${item.quoteId}`;
+  if (item.kind === "stalled_job") return `/jobs/${item.jobId}`;
+  if (item.kind === "quote_awaiting_approval") return `/quotes/${item.quoteId}`;
+  return `/invoices/${item.invoiceId}`;
 }
 
 function ItemRow({ item }: { item: AttentionItem }) {
+  if (item.kind === "overdue_invoice") {
+    return (
+      <>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <Receipt className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+              {item.customerName ?? "Unknown customer"} — ${item.amount.toFixed(2)}
+            </p>
+            <p className="truncate text-xs text-neutral-500">{item.invoiceNumber}</p>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 dark:bg-red-500/10 dark:text-red-400">
+          {item.daysOverdue} day{item.daysOverdue === 1 ? "" : "s"} overdue
+        </span>
+      </>
+    );
+  }
+
   if (item.kind === "stalled_job") {
     return (
       <>
