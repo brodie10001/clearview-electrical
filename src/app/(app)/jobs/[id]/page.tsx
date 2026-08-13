@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/supabase/request-user";
+import { getCurrentProfile } from "@/lib/data/current-business";
 import { JobTabs } from "./job-tabs";
 import type { VisitData, WorkerOption } from "./visits-section";
 import type { VariationData } from "./variations-section";
@@ -45,6 +47,9 @@ interface JobDetail {
 export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">) {
   const { id } = await params;
   const supabase = await createClient();
+  const user = await getRequestUser();
+  const profile = user ? await getCurrentProfile(user.id) : null;
+  const canManageFinances = profile?.role === "owner" || profile?.role === "admin";
 
   // Every one of these only depends on `id` (already known from params), not
   // on each other's results, so they all run as one parallel batch instead
@@ -244,6 +249,7 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
         testTypes={testTypesRes.data ?? []}
         complianceDocuments={complianceDocumentsRes.data ?? []}
         complianceTemplates={complianceTemplatesRes.data ?? []}
+        canManageFinances={canManageFinances}
       />
     </div>
   );

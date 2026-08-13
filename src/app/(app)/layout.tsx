@@ -23,7 +23,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <main className="min-w-0 flex-1 pt-[env(safe-area-inset-top)] pb-28 md:pb-8">
         <Suspense fallback={null}>{children}</Suspense>
       </main>
-      <BottomNav />
+      <Suspense fallback={<BottomNav role="owner" />}>
+        <BottomNavWithProfile userId={user.id} />
+      </Suspense>
       <QuickActionButton />
       <OfflinePhotoIndicator />
       <FeedbackButton />
@@ -54,4 +56,9 @@ async function SidebarWithProfile({
   const businessName = businessOverview.tradingName || businessOverview.businessName || "Your Business";
 
   return <Sidebar businessName={businessName} displayName={displayName} role={role} />;
+}
+
+async function BottomNavWithProfile({ userId }: { userId: string }) {
+  const profile = await getCurrentProfile(userId);
+  return <BottomNav role={profile?.role ?? "owner"} />;
 }
