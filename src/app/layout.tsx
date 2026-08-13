@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tradeline",
+  title: "Ralden",
   description: "Business management for trades",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Tradeline",
+    title: "Ralden",
   },
   icons: {
     icon: [
