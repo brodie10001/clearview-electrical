@@ -19,14 +19,16 @@ function StatCard({
   value,
   emphasis,
   hint,
+  href,
 }: {
   label: string;
   value: string;
   emphasis?: boolean;
   hint?: string;
+  href?: string;
 }) {
-  return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+  const content = (
+    <>
       <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
       <p
         className={
@@ -38,6 +40,23 @@ function StatCard({
         {value}
       </p>
       {hint ? <p className="mt-1 text-xs text-neutral-500">{hint}</p> : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="rounded-2xl border border-neutral-200 bg-white p-4 transition-colors hover:border-amber-300 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-amber-700"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+      {content}
     </div>
   );
 }
@@ -71,7 +90,11 @@ export default async function FinancesPage({ searchParams }: PageProps<"/finance
         <StatCard label="Revenue Invoiced" value={money(summary.revenueInvoiced)} emphasis />
         <StatCard label="Outstanding Invoices" value={money(summary.outstandingInvoices)} />
         <StatCard label="Overdue Invoices" value={money(summary.overdueInvoices)} />
-        <StatCard label="Business Expenses" value={money(summary.businessExpenses)} />
+        <StatCard
+          label="Business Expenses"
+          value={money(summary.businessExpenses)}
+          href="/finances/expenses"
+        />
         <StatCard
           label="GST Collected / Paid"
           value={`${money(summary.gstCollected)} / ${money(summary.gstPaid)}`}
