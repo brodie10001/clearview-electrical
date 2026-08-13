@@ -29,6 +29,29 @@ const DERIVED_STATUSES = new Set<InvoiceRecordStatus>(["Paid", "Partially Paid"]
 const PAYMENT_METHOD_OPTIONS = ["Bank Transfer", "Cash", "Card", "Other"] as const;
 type PaymentMethodOption = (typeof PAYMENT_METHOD_OPTIONS)[number];
 
+// Same rounded-pill treatment as the status badges elsewhere -- method
+// isn't a real status, but a quick colour-coded glance at how each payment
+// came in is just as useful here. Falls back to the neutral style for any
+// pre-existing free-text value that predates PAYMENT_METHOD_OPTIONS.
+const PAYMENT_METHOD_STYLES: Record<string, string> = {
+  "Bank Transfer": "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+  Cash: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
+  Card: "bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400",
+  Other: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
+};
+
+function PaymentMethodBadge({ method }: { method: string }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
+        PAYMENT_METHOD_STYLES[method] ?? PAYMENT_METHOD_STYLES.Other
+      }`}
+    >
+      {method}
+    </span>
+  );
+}
+
 const inputClass =
   "rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50";
 
@@ -82,7 +105,7 @@ export function InvoiceBuilder({
   return (
     <div className="flex flex-col gap-4">
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-neutral-500">Status</label>
             {DERIVED_STATUSES.has(status) ? (
@@ -126,21 +149,6 @@ export function InvoiceBuilder({
               {formatDate(invoice.due_date)}
             </p>
           </div>
-
-          <div className="flex flex-col justify-end gap-2">
-            <button
-              onClick={() => setSharing(true)}
-              className="flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-600"
-            >
-              <Share2 className="h-4 w-4" /> Share Invoice
-            </button>
-            <a
-              href={`/api/invoices/${invoice.id}/pdf`}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-            >
-              <Download className="h-4 w-4" /> Download PDF
-            </a>
-          </div>
         </div>
       </section>
 
@@ -165,12 +173,14 @@ export function InvoiceBuilder({
             {payments.map((payment) => (
               <li key={payment.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                    {money(payment.amount)}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                      {money(payment.amount)}
+                    </p>
+                    {payment.method ? <PaymentMethodBadge method={payment.method} /> : null}
+                  </div>
                   <p className="truncate text-xs text-neutral-500">
                     {formatDate(payment.paid_date)}
-                    {payment.method ? ` · ${payment.method}` : ""}
                     {payment.notes ? ` · ${payment.notes}` : ""}
                   </p>
                 </div>
@@ -280,12 +290,32 @@ export function InvoiceBuilder({
             </div>
           </form>
         ) : (
-          <button
-            onClick={() => setAddingPayment(true)}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          >
-            Record payment
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setAddingPayment(true)}
+              className="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              Record payment
+            </button>
+            {balance > 0 ? (
+              <button
+                onClick={() => {
+                  // Skips the form entirely for the common case -- customer
+                  // paid the whole thing, today, however they usually pay.
+                  // Still just a manual record (no payment gateway wired
+                  // up), one click instead of typing amount/date/method.
+                  const formData = new FormData();
+                  formData.set("amount", balance.toFixed(2));
+                  formData.set("paid_date", today);
+                  formData.set("method", "Bank Transfer");
+                  startTransition(() => recordPayment(invoice.id, invoice.job_id, formData).then(refresh));
+                }}
+                className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+              >
+                Mark as fully paid
+              </button>
+            ) : null}
+          </div>
         )}
       </section>
 
@@ -402,6 +432,25 @@ export function InvoiceBuilder({
             Save changes
           </button>
         </form>
+      </section>
+
+      {/* Share/download last -- by the time you're done editing details is
+          the point you actually want to send the thing, not before. */}
+      <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            onClick={() => setSharing(true)}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+          >
+            <Share2 className="h-4 w-4" /> Share Invoice
+          </button>
+          <a
+            href={`/api/invoices/${invoice.id}/pdf`}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            <Download className="h-4 w-4" /> Download PDF
+          </a>
+        </div>
       </section>
     </div>
   );

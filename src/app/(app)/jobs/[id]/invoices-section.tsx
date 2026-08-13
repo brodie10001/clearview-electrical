@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Receipt, Wrench, LayoutList } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { NumericInput } from "@/components/ui/numeric-input";
@@ -375,6 +376,7 @@ function AdHocStep({
   onBack: () => void;
   onDone: () => void;
 }) {
+  const router = useRouter();
   const [amountType, setAmountType] = useState<InvoiceAmountType>("percentage");
   const [percentage, setPercentage] = useState(0);
   const [amount, setAmount] = useState(0);
@@ -387,8 +389,12 @@ function AdHocStep({
   return (
     <form
       action={async (formData) => {
-        await createAdHocInvoice(jobId, formData);
+        const { id } = await createAdHocInvoice(jobId, formData);
+        // Straight to the new invoice rather than back to the job page --
+        // sharing/downloading/recording a payment is almost always the very
+        // next thing after creating one, so land where that's one click away.
         onDone();
+        router.push(`/invoices/${id}`);
       }}
       className="flex flex-col gap-3"
     >
