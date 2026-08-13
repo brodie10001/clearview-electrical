@@ -5,6 +5,7 @@ export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -12,5 +13,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Jobs", href: "/jobs", icon: Briefcase },
   { label: "Properties", href: "/properties", icon: Building2 },
   { label: "Customers", href: "/customers", icon: Users },
-  { label: "Finances", href: "/finances", icon: Wallet },
+  { label: "Finances", href: "/finances", icon: Wallet, adminOnly: true },
 ];

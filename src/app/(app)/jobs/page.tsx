@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 import { todayDateString } from "@/lib/format";
 import { JobsList, type JobListRow } from "./jobs-list";
 import { isJobOpen } from "@/lib/job-status";
+import { AddExpenseButton } from "@/components/finances/add-expense-button";
 import type { JobStatus, InvoiceStatus } from "@/types/database";
 
 const FILTERS = [
@@ -119,6 +120,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
             <CalendarDays className="h-4 w-4" />
             Calendar
           </Link>
+          <AddExpenseButton />
           <Link
             href="/jobs/new"
             className="flex items-center gap-1.5 rounded-full bg-[#4F9FE0] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#4387BE]"

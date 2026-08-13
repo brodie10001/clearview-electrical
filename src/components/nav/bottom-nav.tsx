@@ -6,8 +6,10 @@ import { NAV_ITEMS } from "./nav-items";
 import { isNavItemActive } from "./is-active";
 import { clsx } from "clsx";
 
-export function BottomNav() {
+export function BottomNav({ role }: { role: string }) {
   const pathname = usePathname();
+  const canManageFinances = role === "owner" || role === "admin";
+  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || canManageFinances);
 
   return (
     <nav
@@ -15,7 +17,7 @@ export function BottomNav() {
       aria-label="Primary"
     >
       <div className="flex items-center gap-0.5 rounded-full border border-neutral-200/80 bg-white/90 px-1.5 py-1.5 shadow-lg shadow-black/5 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-900/90">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = isNavItemActive(pathname, item.href);
           const Icon = item.icon;
           return (

@@ -16,6 +16,8 @@ interface SidebarProps {
 
 export function Sidebar({ businessName, displayName, role }: SidebarProps) {
   const pathname = usePathname();
+  const canManageFinances = role === "owner" || role === "admin";
+  const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || canManageFinances);
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 bg-white px-4 py-6 md:flex dark:border-neutral-800 dark:bg-neutral-900">
@@ -29,7 +31,7 @@ export function Sidebar({ businessName, displayName, role }: SidebarProps) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1" aria-label="Primary">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = isNavItemActive(pathname, item.href);
           const Icon = item.icon;
           return (
