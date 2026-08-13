@@ -56,21 +56,27 @@ export async function createAdHocInvoice(jobId: string, formData: FormData) {
     amount = Number(formData.get("amount"));
   }
 
-  const { error } = await supabase.from("invoices").insert({
-    job_id: jobId,
-    stage_label: stageLabel,
-    amount_type: amountType,
-    percentage: amountType === "percentage" ? Number(percentageRaw) : null,
-    amount,
-    issue_date: issueDate,
-    payment_terms: paymentTerms,
-    due_date: dueDate,
-  });
+  const { data, error } = await supabase
+    .from("invoices")
+    .insert({
+      job_id: jobId,
+      stage_label: stageLabel,
+      amount_type: amountType,
+      percentage: amountType === "percentage" ? Number(percentageRaw) : null,
+      amount,
+      issue_date: issueDate,
+      payment_terms: paymentTerms,
+      due_date: dueDate,
+    })
+    .select("id")
+    .single();
 
   if (error) throw new Error(error.message);
 
   revalidatePath(`/jobs/${jobId}`);
   revalidatePath("/finances");
+
+  return { id: data.id as string };
 }
 
 export async function createInvoicesFromTemplate(jobId: string, formData: FormData) {
