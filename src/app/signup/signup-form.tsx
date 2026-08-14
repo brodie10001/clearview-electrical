@@ -191,6 +191,18 @@ export function SignupForm() {
               {pending ? "Creating account..." : "Create account"}
             </button>
 
+            <p className="text-center text-xs text-neutral-400">
+              By creating an account, you agree to Ralden&apos;s{" "}
+              <Link href="/terms" className="underline hover:text-amber-600">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="underline hover:text-amber-600">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+
             <p className="text-center text-sm text-neutral-500">
               Already have an account?{" "}
               <Link href="/login" className="font-medium text-amber-600 hover:underline">
