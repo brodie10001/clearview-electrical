@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import * as Sentry from "@sentry/nextjs";
 
 // Catches runtime errors thrown anywhere under the root layout (any page,
 // authenticated or not) so a crash lands on something a user can act on
@@ -18,6 +19,7 @@ export default function GlobalErrorBoundary({
 }) {
   useEffect(() => {
     console.error(error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (
