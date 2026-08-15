@@ -12,7 +12,10 @@ import type {
 
 async function insertProperty(formData: FormData) {
   const customerId = formData.get("customer_id") as string;
-  const address = formData.get("address") as string;
+  const streetAddress = formData.get("street_address") as string;
+  const suburb = (formData.get("suburb") as string) || null;
+  const state = (formData.get("state") as string) || null;
+  const postcode = (formData.get("postcode") as string) || null;
   const propertyType = formData.get("property_type") as PropertyType;
   const gpsLat = formData.get("gps_lat") as string;
   const gpsLng = formData.get("gps_lng") as string;
@@ -22,19 +25,22 @@ async function insertProperty(formData: FormData) {
     .from("properties")
     .insert({
       customer_id: customerId,
-      address,
+      street_address: streetAddress,
+      suburb,
+      state,
+      postcode,
       property_type: propertyType,
       gps_lat: gpsLat ? Number(gpsLat) : null,
       gps_lng: gpsLng ? Number(gpsLng) : null,
     })
-    .select("id")
+    .select("id, address")
     .single();
 
   if (error || !data) {
     throw new Error(error?.message ?? "Failed to create property");
   }
 
-  return { id: data.id as string, address, customerId };
+  return { id: data.id as string, address: data.address as string, customerId };
 }
 
 export async function createProperty(formData: FormData) {

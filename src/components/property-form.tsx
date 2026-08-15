@@ -7,6 +7,7 @@ import {
   createPropertyInline,
   type CreatePropertyInlineState,
 } from "@/app/(app)/properties/actions";
+import { PropertyAddressFields } from "@/components/property-address-fields";
 
 export interface PropertyCustomerOption {
   id: string;
@@ -95,10 +96,7 @@ export function PropertyForm(props: PropertyFormProps) {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className={labelClass}>Address</label>
-        <input name="address" required className={inputClass} />
-      </div>
+      <PropertyAddressFields inputClass={inputClass} labelClass={labelClass} />
 
       <div className="flex flex-col gap-1.5">
         <label className={labelClass}>Property type</label>

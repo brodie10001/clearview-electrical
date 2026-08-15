@@ -221,7 +221,15 @@ export interface Database {
           business_id: string;
           id: string;
           customer_id: string;
+          // Generated column: composed from street_address/suburb/state/
+          // postcode below. Never write to it directly -- Postgres rejects
+          // inserts/updates that try.
           address: string;
+          legacy_address: string | null;
+          street_address: string;
+          suburb: string | null;
+          state: string | null;
+          postcode: string | null;
           gps_lat: number | null;
           gps_lng: number | null;
           property_type: PropertyType;
@@ -230,7 +238,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["properties"]["Row"]> & {
           customer_id: string;
-          address: string;
+          street_address: string;
           property_type: PropertyType;
         };
         Update: Partial<Database["public"]["Tables"]["properties"]["Row"]>;
