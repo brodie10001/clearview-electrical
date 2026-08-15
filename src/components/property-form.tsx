@@ -7,6 +7,7 @@ import {
   createPropertyInline,
   type CreatePropertyInlineState,
 } from "@/app/(app)/properties/actions";
+import { PropertyAddressFields } from "@/components/property-address-fields";
 
 export interface PropertyCustomerOption {
   id: string;
@@ -95,10 +96,7 @@ export function PropertyForm(props: PropertyFormProps) {
         )}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className={labelClass}>Address</label>
-        <input name="address" required className={inputClass} />
-      </div>
+      <PropertyAddressFields inputClass={inputClass} labelClass={labelClass} />
 
       <div className="flex flex-col gap-1.5">
         <label className={labelClass}>Property type</label>
@@ -107,17 +105,6 @@ export function PropertyForm(props: PropertyFormProps) {
           <option value="commercial">Commercial</option>
           <option value="industrial">Industrial</option>
         </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>GPS latitude (optional)</label>
-          <input name="gps_lat" type="number" step="any" className={inputClass} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>GPS longitude (optional)</label>
-          <input name="gps_lng" type="number" step="any" className={inputClass} />
-        </div>
       </div>
 
       {embedded && state.error ? (
