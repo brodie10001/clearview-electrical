@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { PlatformLogo } from "@/components/platform-logo";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signIn } from "./actions";
 
 export function LoginForm({
@@ -64,10 +65,9 @@ export function LoginForm({
                 Forgot password?
               </Link>
             </div>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               required
               autoComplete="current-password"
               className="rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"

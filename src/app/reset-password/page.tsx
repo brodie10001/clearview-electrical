@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { PlatformLogo } from "@/components/platform-logo";
+import { PasswordInput } from "@/components/ui/password-input";
 import { resetPassword } from "./actions";
 
 export default function ResetPasswordPage() {
@@ -27,10 +28,9 @@ export default function ResetPasswordPage() {
             <label htmlFor="password" className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
               New password
             </label>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               required
               minLength={8}
               autoComplete="new-password"
@@ -44,10 +44,9 @@ export default function ResetPasswordPage() {
             >
               Confirm new password
             </label>
-            <input
+            <PasswordInput
               id="confirm_password"
               name="confirm_password"
-              type="password"
               required
               minLength={8}
               autoComplete="new-password"

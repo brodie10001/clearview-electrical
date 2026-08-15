@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PlatformLogo } from "@/components/platform-logo";
+import { PasswordInput } from "@/components/ui/password-input";
 import { signUp, verifySignupOtp, resendSignupOtp } from "./actions";
 
 const inputClass =
@@ -154,10 +155,9 @@ export function SignupForm() {
               <label htmlFor="password" className={labelClass}>
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
@@ -168,10 +168,9 @@ export function SignupForm() {
               <label htmlFor="confirm_password" className={labelClass}>
                 Confirm password
               </label>
-              <input
+              <PasswordInput
                 id="confirm_password"
                 name="confirm_password"
-                type="password"
                 required
                 minLength={8}
                 autoComplete="new-password"
