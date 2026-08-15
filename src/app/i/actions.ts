@@ -1,6 +1,7 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 // Called from the public invoice page's Accept/Decline buttons. Uses the
 // service client since an anonymous visitor has no Supabase auth session --
@@ -16,6 +17,9 @@ export async function respondToInvoice(
   token: string,
   response: "Accepted" | "Declined",
 ): Promise<{ ok: boolean }> {
+  const allowed = await checkRateLimit("invoice-response", { maxRequests: 10, windowSeconds: 60 });
+  if (!allowed) return { ok: false };
+
   const supabase = createServiceClient();
 
   const { data: tokenRow } = await supabase

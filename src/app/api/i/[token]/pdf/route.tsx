@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getAcceptedQuote } from "@/lib/quotes";
 import {
   InvoiceDocument,
@@ -16,6 +17,12 @@ export const runtime = "nodejs";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+
+  const allowed = await checkRateLimit("invoice-pdf", { maxRequests: 20, windowSeconds: 300 });
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = createServiceClient();
 
   // Same rule as the public page and the public quote PDF route: resolve

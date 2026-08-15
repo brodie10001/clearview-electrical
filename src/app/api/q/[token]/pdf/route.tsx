@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   QuoteDocument,
   DEFAULT_PDF_SETTINGS,
@@ -14,6 +15,12 @@ export const runtime = "nodejs";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+
+  const allowed = await checkRateLimit("quote-pdf", { maxRequests: 20, windowSeconds: 300 });
+  if (!allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = createServiceClient();
 
   // Same rule as the public page: resolve the token to exactly one quote_id
