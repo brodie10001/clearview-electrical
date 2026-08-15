@@ -34,7 +34,25 @@ export function LogoUploader({
     setError(null);
 
     const supabase = createClient();
-    const path = `${kind}-${Date.now()}-${file.name}`;
+
+    // Storage RLS scopes writes to this bucket by the object path's own
+    // business_id prefix (see the branding_bucket_tenant_scoping
+    // migration), so every upload has to land under that folder --
+    // business_settings is already RLS-scoped to exactly one row (the
+    // caller's own business), which is the one place a client component
+    // can read its own business_id from.
+    const { data: ownSettings, error: settingsError } = await supabase
+      .from("business_settings")
+      .select("business_id")
+      .single();
+
+    if (settingsError || !ownSettings) {
+      setError(settingsError?.message ?? "Could not determine your business.");
+      setBusy(false);
+      return;
+    }
+
+    const path = `${ownSettings.business_id}/${kind}-${Date.now()}-${file.name}`;
 
     const { error: uploadError } = await supabase.storage
       .from("branding")
