@@ -1,6 +1,7 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 // Called from the public quote page's client-side view tracker, which
 // checks sessionStorage first so this only fires once per browser session.
@@ -9,6 +10,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 // only ever touches quote_activity for the one quote that token resolves
 // to.
 export async function logQuoteViewed(token: string) {
+  const allowed = await checkRateLimit("quote-viewed", { maxRequests: 20, windowSeconds: 60 });
+  if (!allowed) return;
+
   const supabase = createServiceClient();
 
   const { data: tokenRow } = await supabase
