@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, CheckCircle2, Circle, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Trash2, StickyNote } from "lucide-react";
 import { clsx } from "clsx";
 import { createClient } from "@/lib/supabase/client";
 import { WidgetCard } from "./widget-card";
@@ -68,7 +68,9 @@ export function PersonalNotesWidget({ initialItems }: { initialItems: NoteItem[]
 
   return (
     <WidgetCard
+      id="personal-notes"
       title="Personal Notes"
+      icon={<StickyNote className="h-4 w-4 text-neutral-400" />}
       action={
         <span className="text-xs text-neutral-400">
           {status === "saving" ? "Saving..." : status === "saved" ? "Saved" : ""}

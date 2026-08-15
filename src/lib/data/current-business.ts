@@ -30,3 +30,24 @@ export const getCurrentBusinessOverview = cache(async () => {
     onboardingCompletedAt: businessRes.data?.onboarding_completed_at ?? null,
   };
 });
+
+// Cheap head-count for the sidebar/bottom-nav "Dashboard" badge -- overdue
+// invoices + quotes still awaiting a customer reply, the same two
+// highest-priority kinds of thing the dashboard's Needs Attention widget
+// leads with. Both hit existing indexes (invoices_business_status_idx,
+// quotes_business_status_updated_idx). RLS already scopes invoices/quotes
+// to owners/admins, so this naturally comes back 0 for a technician rather
+// than needing a separate role check here.
+export const getAttentionCount = cache(async () => {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const [overdueRes, sentQuotesRes] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("id", { count: "exact", head: true })
+      .lt("due_date", today)
+      .not("status", "in", '("Paid","Void","Written Off")'),
+    supabase.from("quotes").select("id", { count: "exact", head: true }).eq("status", "Sent"),
+  ]);
+  return (overdueRes.count ?? 0) + (sentQuotesRes.count ?? 0);
+});

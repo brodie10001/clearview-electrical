@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Briefcase, Camera, Receipt, FileText, X } from "lucide-react";
+import { Plus, Briefcase, Camera, Receipt, FileText, Users, StickyNote, X } from "lucide-react";
 import { clsx } from "clsx";
 import { QuickPhotoDialog } from "./quick-photo-dialog";
 import { NewQuoteDialog } from "./new-quote-dialog";
@@ -22,6 +22,11 @@ export function QuickActionButton() {
       onSelect: () => router.push("/jobs/new"),
     },
     {
+      label: "New Customer",
+      icon: Users,
+      onSelect: () => router.push("/customers/new"),
+    },
+    {
       label: "New Quote",
       icon: FileText,
       onSelect: () => setQuoteDialogOpen(true),
@@ -35,6 +40,11 @@ export function QuickActionButton() {
       label: "Quick Photo",
       icon: Camera,
       onSelect: () => setPhotoDialogOpen(true),
+    },
+    {
+      label: "New Note",
+      icon: StickyNote,
+      onSelect: () => router.push("/#personal-notes"),
     },
   ];
 

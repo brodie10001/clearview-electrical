@@ -6,7 +6,7 @@ import { NAV_ITEMS } from "./nav-items";
 import { isNavItemActive } from "./is-active";
 import { clsx } from "clsx";
 
-export function BottomNav({ role }: { role: string }) {
+export function BottomNav({ role, attentionCount = 0 }: { role: string; attentionCount?: number }) {
   const pathname = usePathname();
   const canManageFinances = role === "owner" || role === "admin";
   const navItems = NAV_ITEMS.filter((item) => !item.adminOnly || canManageFinances);
@@ -20,18 +20,24 @@ export function BottomNav({ role }: { role: string }) {
         {navItems.map((item) => {
           const active = isNavItemActive(pathname, item.href);
           const Icon = item.icon;
+          const showBadge = item.href === "/" && attentionCount > 0;
           return (
             <Link
               key={item.href}
               href={item.href}
               className={clsx(
-                "flex flex-col items-center gap-0.5 rounded-full px-3.5 py-2 text-[10px] font-medium transition-colors",
+                "relative flex flex-col items-center gap-0.5 rounded-full px-3.5 py-2 text-[10px] font-medium transition-colors",
                 active
                   ? "bg-[#4F9FE0] text-white"
                   : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100",
               )}
             >
-              <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 2} />
+              <span className="relative">
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 2} />
+                {showBadge ? (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 ring-2 ring-white dark:ring-neutral-900" />
+                ) : null}
+              </span>
               <span>{item.label}</span>
             </Link>
           );
