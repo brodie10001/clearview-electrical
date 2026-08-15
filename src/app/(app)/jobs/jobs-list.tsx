@@ -2,13 +2,14 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MoreVertical, Home, Building2, Factory } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import { clsx } from "clsx";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Toast } from "@/components/ui/toast";
 import { JobStatusBadge, InvoiceStatusBadge } from "@/components/ui/status-badge";
 import { formatVisitDate, formatVisitTime } from "@/lib/format";
+import { PROPERTY_TYPE_ICONS, PROPERTY_TYPE_COLORS } from "@/lib/property-type";
 import { deleteJob, archiveJob } from "./actions";
 import type { JobStatus, InvoiceStatus, PropertyType } from "@/types/database";
 
@@ -26,12 +27,6 @@ export interface BrandColors {
   primary: string;
   accent: string;
 }
-
-const PROPERTY_TYPE_ICONS: Record<PropertyType, typeof Home> = {
-  residential: Home,
-  commercial: Building2,
-  industrial: Factory,
-};
 
 // The status rail is this page's own "at a glance" colour language, built
 // around the business's actual configured brand colours for the two most
@@ -224,7 +219,12 @@ function JobRow({
         className="flex min-w-0 flex-1 items-start justify-between gap-3 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800"
       >
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+          <span
+            className={clsx(
+              "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+              PROPERTY_TYPE_COLORS[job.propertyType].icon,
+            )}
+          >
             <PropertyIcon className="h-4 w-4" />
           </span>
           <div className="min-w-0">
