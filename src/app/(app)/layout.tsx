@@ -1,7 +1,11 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getRequestUser } from "@/lib/supabase/request-user";
-import { getCurrentProfile, getCurrentBusinessOverview } from "@/lib/data/current-business";
+import {
+  getCurrentProfile,
+  getCurrentBusinessOverview,
+  getAttentionCount,
+} from "@/lib/data/current-business";
 import { Sidebar } from "@/components/nav/sidebar";
 import { BottomNav } from "@/components/nav/bottom-nav";
 import { QuickActionButton } from "@/components/quick-action/quick-action-button";
@@ -46,19 +50,30 @@ async function SidebarWithProfile({
   userId: string;
   fallbackEmail: string | undefined;
 }) {
-  const [profile, businessOverview] = await Promise.all([
+  const [profile, businessOverview, attentionCount] = await Promise.all([
     getCurrentProfile(userId),
     getCurrentBusinessOverview(),
+    getAttentionCount(),
   ]);
 
   const displayName = profile?.full_name || profile?.email || fallbackEmail || "You";
   const role = profile?.role ?? "owner";
   const businessName = businessOverview.tradingName || businessOverview.businessName || "Your Business";
 
-  return <Sidebar businessName={businessName} displayName={displayName} role={role} />;
+  return (
+    <Sidebar
+      businessName={businessName}
+      displayName={displayName}
+      role={role}
+      attentionCount={attentionCount}
+    />
+  );
 }
 
 async function BottomNavWithProfile({ userId }: { userId: string }) {
-  const profile = await getCurrentProfile(userId);
-  return <BottomNav role={profile?.role ?? "owner"} />;
+  const [profile, attentionCount] = await Promise.all([
+    getCurrentProfile(userId),
+    getAttentionCount(),
+  ]);
+  return <BottomNav role={profile?.role ?? "owner"} attentionCount={attentionCount} />;
 }

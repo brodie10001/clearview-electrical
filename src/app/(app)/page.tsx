@@ -13,9 +13,13 @@ import {
 } from "@/components/dashboard/recent-activity-widget";
 import { PersonalNotesWidget } from "@/components/dashboard/personal-notes-widget";
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
+import { CalendarOverviewWidget, type UpcomingVisit } from "@/components/dashboard/calendar-overview-widget";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
+import { KpiCard } from "@/components/dashboard/kpi-card";
+import { CalendarClock, HardHat, FileClock, Wallet, CalendarRange } from "lucide-react";
 import { todayDateString } from "@/lib/format";
 import { isJobOpen } from "@/lib/job-status";
+import { addDays, getWeekStart } from "@/lib/calendar-dates";
 import type { JobStatus, InvoiceStatus, InvoiceRecordStatus } from "@/types/database";
 
 const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
@@ -25,6 +29,7 @@ const STALE_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days with no update
 // stops meaning anything. Keep these in sync: the whole point of surfacing
 // this in-app is that it must never disagree with what the email reports.
 const NOT_OVERDUE_STATUSES = new Set<InvoiceRecordStatus>(["Paid", "Void", "Written Off"]);
+const OUTSTANDING_STATUSES = new Set<InvoiceRecordStatus>(["Sent", "Partially Paid", "Overdue"]);
 
 interface JobRow {
   id: string;
@@ -38,6 +43,7 @@ interface JobRow {
 interface TodayVisitRow {
   id: string;
   start_time: string | null;
+  assigned_worker: string | null;
   jobs: {
     id: string;
     job_status: JobStatus;
@@ -124,14 +130,41 @@ function selectQuotesAwaitingApproval(
   }));
 }
 
+interface UnpaidInvoiceRow {
+  amount: number;
+  status: InvoiceRecordStatus;
+  payments: { amount: number }[];
+}
+
+function computeUnpaidTotal(invoices: UnpaidInvoiceRow[]) {
+  const unpaid = invoices.filter((inv) => OUTSTANDING_STATUSES.has(inv.status));
+  const total = unpaid.reduce((sum, inv) => {
+    const paid = inv.payments.reduce((s, p) => s + p.amount, 0);
+    return sum + Math.max(0, inv.amount - paid);
+  }, 0);
+  return { total, count: unpaid.length };
+}
+
+interface UpcomingVisitRow {
+  id: string;
+  scheduled_date: string;
+  start_time: string | null;
+  jobs: { id: string; properties: { address: string } | null } | null;
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const user = await getRequestUser();
 
   const today = todayDateString();
+  const weekStart = getWeekStart(today);
+  const weekEnd = addDays(weekStart, 6);
+  const upcomingEnd = addDays(today, 6);
+
+  const profile = await getCurrentProfile(user!.id);
+  const canManageFinances = profile?.role === "owner" || profile?.role === "admin";
 
   const [
-    profile,
     businessOverview,
     todayVisitsRes,
     openJobsRes,
@@ -140,13 +173,18 @@ export default async function DashboardPage() {
     recentQuotesRes,
     sentQuotesRes,
     overdueInvoicesRes,
+    unpaidInvoicesRes,
+    inProgressCountRes,
+    weekVisitsRes,
+    upcomingVisitsRes,
     notesRes,
   ] = await Promise.all([
-    getCurrentProfile(user!.id),
     getCurrentBusinessOverview(),
     supabase
       .from("job_visits")
-      .select("id, start_time, jobs!inner(id, job_status, properties(address), contacts(name))")
+      .select(
+        "id, start_time, assigned_worker, jobs!inner(id, job_status, properties(address), contacts(name))",
+      )
       .eq("scheduled_date", today)
       .eq("jobs.archived", false)
       .order("start_time", { ascending: true, nullsFirst: false })
@@ -210,6 +248,35 @@ export default async function DashboardPage() {
       .order("due_date", { ascending: true })
       .limit(10)
       .returns<OverdueInvoiceRow[]>(),
+    canManageFinances
+      ? supabase
+          .from("invoices")
+          .select("amount, status, payments(amount)")
+          .not("status", "in", '("Paid","Void","Written Off")')
+          .returns<UnpaidInvoiceRow[]>()
+      : Promise.resolve({ data: [] as UnpaidInvoiceRow[] }),
+    supabase
+      .from("jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("archived", false)
+      .eq("job_status", "On Site"),
+    supabase
+      .from("job_visits")
+      .select("id, jobs!inner(id)")
+      .eq("jobs.archived", false)
+      .gte("scheduled_date", weekStart)
+      .lte("scheduled_date", weekEnd)
+      .returns<{ id: string }[]>(),
+    supabase
+      .from("job_visits")
+      .select("id, scheduled_date, start_time, jobs!inner(id, properties(address))")
+      .eq("jobs.archived", false)
+      .gt("scheduled_date", today)
+      .lte("scheduled_date", upcomingEnd)
+      .order("scheduled_date", { ascending: true })
+      .order("start_time", { ascending: true, nullsFirst: false })
+      .limit(6)
+      .returns<UpcomingVisitRow[]>(),
     supabase
       .from("personal_note_items")
       .select("id, text, is_checked, position")
@@ -220,6 +287,17 @@ export default async function DashboardPage() {
 
   const firstName = (profile?.full_name || profile?.email || "there").split(" ")[0];
 
+  const workerIds = Array.from(
+    new Set((todayVisitsRes.data ?? []).map((v) => v.assigned_worker).filter((id): id is string => !!id)),
+  );
+  const workerNamesRes =
+    workerIds.length > 0
+      ? await supabase.from("profiles").select("id, full_name, email").in("id", workerIds)
+      : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
+  const workerNameById = new Map(
+    (workerNamesRes.data ?? []).map((w) => [w.id, w.full_name || w.email || "Unassigned"]),
+  );
+
   const todayJobs: TodayJob[] = (todayVisitsRes.data ?? [])
     .filter((visit) => visit.jobs)
     .map((visit) => ({
@@ -229,7 +307,10 @@ export default async function DashboardPage() {
       start_time: visit.start_time,
       property_address: visit.jobs!.properties?.address ?? "Unknown property",
       contact_name: visit.jobs!.contacts?.name ?? null,
+      worker_name: visit.assigned_worker ? (workerNameById.get(visit.assigned_worker) ?? null) : null,
     }));
+
+  const scheduledTodayCount = todayJobs.filter((j) => j.job_status === "Scheduled").length;
 
   // Overdue invoices (money already owed) lead, then quotes waiting on the
   // customer (a clear, actionable follow-up), then generically stalled
@@ -276,9 +357,26 @@ export default async function DashboardPage() {
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 5);
 
+  const upcomingVisits: UpcomingVisit[] = (upcomingVisitsRes.data ?? [])
+    .filter((v) => v.jobs)
+    .map((v) => ({
+      id: v.id,
+      jobId: v.jobs!.id,
+      scheduledDate: v.scheduled_date,
+      startTime: v.start_time,
+      propertyAddress: v.jobs!.properties?.address ?? "Unknown property",
+    }));
+
+  const { total: unpaidTotal, count: unpaidCount } = computeUnpaidTotal(unpaidInvoicesRes.data ?? []);
+  const sentQuotesTotal = (sentQuotesRes.data ?? []).reduce((sum, q) => sum + q.total, 0);
+
   return (
     <div className="flex flex-col">
-      <DashboardHeader firstName={firstName} />
+      <DashboardHeader
+        firstName={firstName}
+        displayName={profile?.full_name || profile?.email || "You"}
+        role={profile?.role ?? "owner"}
+      />
 
       {!businessOverview.onboardingCompletedAt ? (
         <div className="px-4 pt-4 sm:px-6 sm:pt-6">
@@ -286,11 +384,59 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2">
+      <div className="flex flex-col gap-4 p-4 sm:gap-5 sm:p-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+          <KpiCard
+            icon={CalendarClock}
+            label="Jobs Today"
+            value={String(todayJobs.length)}
+            support={`${scheduledTodayCount} scheduled`}
+            tone="blue"
+          />
+          <KpiCard
+            icon={HardHat}
+            label="In Progress"
+            value={String(inProgressCountRes.count ?? 0)}
+            support="jobs on site"
+            tone="green"
+          />
+          {canManageFinances ? (
+            <>
+              <KpiCard
+                icon={FileClock}
+                label="Awaiting Quotes"
+                value={String(sentQuotesRes.data?.length ?? 0)}
+                support={`$${sentQuotesTotal.toFixed(2)} pending`}
+                tone="orange"
+              />
+              <KpiCard
+                icon={Wallet}
+                label="Unpaid"
+                value={`$${unpaidTotal.toFixed(2)}`}
+                support={`${unpaidCount} invoice${unpaidCount === 1 ? "" : "s"}`}
+                tone={unpaidCount > 0 ? "red" : "neutral"}
+              />
+            </>
+          ) : null}
+          <KpiCard
+            icon={CalendarRange}
+            label="This Week"
+            value={String(weekVisitsRes.data?.length ?? 0)}
+            support="visits scheduled"
+            tone="neutral"
+          />
+        </div>
+
         <TodaysJobsWidget jobs={todayJobs} />
+
         <NeedsAttentionWidget items={attentionItems} />
-        <RecentActivityWidget items={recentActivity} />
-        <div className="flex flex-col gap-4">
+
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
+          <RecentActivityWidget items={recentActivity} />
+          <CalendarOverviewWidget visits={upcomingVisits} />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
           <PersonalNotesWidget initialItems={notesRes.data ?? []} />
           <WeatherWidget />
         </div>
