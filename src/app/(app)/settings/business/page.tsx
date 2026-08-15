@@ -231,7 +231,7 @@ export default async function BusinessSettingsPage() {
   const canEdit = profileRes.data?.role === "owner" || profileRes.data?.role === "admin";
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:p-6">
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 overflow-x-hidden p-4 sm:p-6">
       <Link
         href="/settings"
         className="flex items-center gap-1.5 text-sm text-neutral-500 hover:text-amber-600"
