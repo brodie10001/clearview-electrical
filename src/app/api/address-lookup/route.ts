@@ -50,7 +50,13 @@ async function searchAddresses(query: string, apiKey: string): Promise<{ id: str
     headers: { Authorization: apiKey, Accept: "application/json" },
     signal: AbortSignal.timeout(5000),
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    // Logged (not surfaced to the client) so a bad key / disabled API
+    // product / wrong endpoint shows up in Vercel's function logs instead
+    // of silently looking like "no matches" forever.
+    console.error("[address-lookup] Geoscape search failed", res.status, await res.text());
+    return [];
+  }
   const data = (await res.json()) as { suggest?: GeoscapeSuggestResult[] };
   return (data.suggest ?? []).map((r) => ({ id: r.id, label: titleCase(r.address) }));
 }
@@ -60,7 +66,10 @@ async function resolveAddress(id: string, apiKey: string) {
     headers: { Authorization: apiKey, Accept: "application/json" },
     signal: AbortSignal.timeout(5000),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.error("[address-lookup] Geoscape resolve failed", res.status, await res.text());
+    return null;
+  }
   const data = (await res.json()) as GeoscapeAddressDetail;
   const p = data.address?.properties;
   if (!p) return null;
@@ -111,9 +120,10 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ suggestions: [] });
-  } catch {
+  } catch (err) {
     // Network/timeout issues against the address API degrade to "no
     // suggestions" -- never a broken form.
+    console.error("[address-lookup] request failed", err);
     return NextResponse.json({ suggestions: [] });
   }
 }
