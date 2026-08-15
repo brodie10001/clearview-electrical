@@ -85,25 +85,27 @@ export function BusinessSettingsTabs({
         </p>
       ) : null}
 
-      <div className="flex gap-1">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={clsx(
-                "flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
-                tab === t.key
-                  ? "bg-neutral-900 text-white dark:bg-neutral-50 dark:text-neutral-900"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {t.label}
-            </button>
-          );
-        })}
+      <div className="-mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:-mx-6 sm:px-6 [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max gap-1">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={clsx(
+                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                  tab === t.key
+                    ? "bg-neutral-900 text-white dark:bg-neutral-50 dark:text-neutral-900"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
