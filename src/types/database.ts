@@ -144,6 +144,7 @@ export interface Database {
           active: boolean;
           is_platform_admin: boolean;
           accepted_at: string | null;
+          tour_completed_at: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["profiles"]["Row"]> & {

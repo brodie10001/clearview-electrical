@@ -15,6 +15,7 @@ import { PersonalNotesWidget } from "@/components/dashboard/personal-notes-widge
 import { WeatherWidget } from "@/components/dashboard/weather-widget";
 import { CalendarOverviewWidget, type UpcomingVisit } from "@/components/dashboard/calendar-overview-widget";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
+import { ProductTour } from "@/components/product-tour/product-tour";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { CalendarClock, HardHat, FileClock, Wallet, CalendarRange } from "lucide-react";
 import { todayDateString } from "@/lib/format";
@@ -441,6 +442,8 @@ export default async function DashboardPage() {
           <WeatherWidget />
         </div>
       </div>
+
+      <ProductTour shouldShow={!profile?.tour_completed_at} />
     </div>
   );
 }

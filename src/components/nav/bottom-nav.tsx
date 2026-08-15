@@ -25,6 +25,7 @@ export function BottomNav({ role, attentionCount = 0 }: { role: string; attentio
             <Link
               key={item.href}
               href={item.href}
+              data-tour={item.href === "/jobs" ? "nav-jobs" : undefined}
               className={clsx(
                 "relative flex flex-col items-center gap-0.5 rounded-full px-3.5 py-2 text-[10px] font-medium transition-colors",
                 active
