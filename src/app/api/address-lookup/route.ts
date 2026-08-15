@@ -5,72 +5,76 @@ import { checkRateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
 // GNAF-backed Australian address lookup, proxied server-side so the API key
-// never reaches the browser. Two-step Geoscape Predictive Address pattern:
-// a search call returns lightweight suggestions (id + label), a second
-// by-id call resolves one to structured street/suburb/state/postcode
-// fields.
-//
-// TODO(geoscape): the exact base URL, auth header shape, and response field
-// names below are this integration's best-documented understanding at the
-// time this was written, not independently verified against Geoscape's own
-// docs (this sandbox can't reach hub.geoscape.com.au / developer.geoscape.
-// com.au to confirm). If suggestions never show up once GEOSCAPE_API_KEY is
-// set, check this against your actual Geoscape Hub API reference first --
-// a wrong URL/field name here just fails closed (empty results), it can't
-// corrupt data or crash the form.
-const GEOSCAPE_BASE_URL = process.env.GEOSCAPE_API_BASE_URL || "https://api.geoscape.com.au/v1";
+// never reaches the browser. Two-step Geoscape Predictive AV API (Predictive
+// API v1, base api.psma.com.au) pattern, confirmed against Geoscape's own
+// API reference (api-docs.geoscape.com.au):
+//   GET /predictive/address?query=...   -> { suggest: [{ id, address, rank }] }
+//   GET /predictive/address/{id}        -> { address: { id, properties: {...} } }
+// Auth is a raw API key in the `Authorization` header -- no "Bearer" prefix,
+// no OAuth token exchange (confirmed via the docs' own example:
+// `Authorization: 123`).
+const GEOSCAPE_BASE_URL = process.env.GEOSCAPE_API_BASE_URL || "https://api.psma.com.au/v1";
 
-interface GeoscapeSearchResult {
+interface GeoscapeSuggestResult {
   id: string;
   address: string;
+  rank: number;
+}
+
+// GNAF data comes back ALL CAPS (see docs' own example: "113 CANBERRA AV,
+// GRIFFITH ACT 2603") -- these values get stored permanently and displayed
+// everywhere the app already shows an address, so they're title-cased here
+// once rather than shouting at every reader forever after.
+function titleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/(^|[\s'-])([a-z])/g, (_, boundary, letter) => boundary + letter.toUpperCase());
 }
 
 interface GeoscapeAddressDetail {
-  addressComponents?: {
-    streetName?: string;
-    streetTypeCode?: string;
-    complexNumber?: string;
-    complexNumberSuffix?: string;
-    numberFirst?: string;
-    numberFirstSuffix?: string;
-    localityName?: string;
-    stateTerritory?: string;
-    postcode?: string;
+  address?: {
+    id: string;
+    properties?: {
+      street_number_1?: string;
+      street_name?: string;
+      street_type_description?: string;
+      locality_name?: string;
+      state_territory?: string;
+      postcode?: string;
+    };
   };
 }
 
 async function searchAddresses(query: string, apiKey: string): Promise<{ id: string; label: string }[]> {
-  const res = await fetch(
-    `${GEOSCAPE_BASE_URL}/predictive/address?query=${encodeURIComponent(query)}&country=AU`,
-    { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(5000) },
-  );
+  const res = await fetch(`${GEOSCAPE_BASE_URL}/predictive/address?query=${encodeURIComponent(query)}`, {
+    headers: { Authorization: apiKey, Accept: "application/json" },
+    signal: AbortSignal.timeout(5000),
+  });
   if (!res.ok) return [];
-  const data = (await res.json()) as { suggest?: GeoscapeSearchResult[] };
-  return (data.suggest ?? []).map((r) => ({ id: r.id, label: r.address }));
+  const data = (await res.json()) as { suggest?: GeoscapeSuggestResult[] };
+  return (data.suggest ?? []).map((r) => ({ id: r.id, label: titleCase(r.address) }));
 }
 
 async function resolveAddress(id: string, apiKey: string) {
   const res = await fetch(`${GEOSCAPE_BASE_URL}/predictive/address/${encodeURIComponent(id)}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: { Authorization: apiKey, Accept: "application/json" },
     signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) return null;
   const data = (await res.json()) as GeoscapeAddressDetail;
-  const c = data.addressComponents;
-  if (!c) return null;
+  const p = data.address?.properties;
+  if (!p) return null;
 
-  const unitPrefix = c.complexNumber ? `${c.complexNumber}${c.complexNumberSuffix ?? ""}/` : "";
-  const streetNumber = `${c.numberFirst ?? ""}${c.numberFirstSuffix ?? ""}`;
-  const streetAddress = [unitPrefix + streetNumber, c.streetName, c.streetTypeCode]
+  const streetAddress = [p.street_number_1, p.street_name, p.street_type_description]
     .filter(Boolean)
     .join(" ")
     .trim();
 
   return {
-    street_address: streetAddress,
-    suburb: c.localityName ?? null,
-    state: c.stateTerritory ?? null,
-    postcode: c.postcode ?? null,
+    street_address: titleCase(streetAddress),
+    suburb: p.locality_name ? titleCase(p.locality_name) : null,
+    state: p.state_territory ?? null,
+    postcode: p.postcode ?? null,
   };
 }
 
