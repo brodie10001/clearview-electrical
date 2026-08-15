@@ -182,7 +182,7 @@ export function DashboardHeader({
         </div>
       </div>
 
-      <div>
+      <div data-tour="dashboard-home">
         <h1 className="text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-neutral-50">
           {greeting()}, {firstName} 👋
         </h1>

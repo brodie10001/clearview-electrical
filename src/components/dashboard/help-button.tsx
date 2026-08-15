@@ -17,6 +17,7 @@ export function HelpButton() {
     <>
       <button
         type="button"
+        data-tour="help-button"
         onClick={() => setOpen(true)}
         aria-label="Help and feedback"
         title="Help and feedback"

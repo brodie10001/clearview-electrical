@@ -73,6 +73,7 @@ export function QuickActionButton() {
           : null}
 
         <button
+          data-tour="quick-action-button"
           onClick={() => setMenuOpen((v) => !v)}
           aria-label={menuOpen ? "Close quick actions" : "Open quick actions"}
           aria-expanded={menuOpen}
