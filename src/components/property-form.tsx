@@ -107,17 +107,6 @@ export function PropertyForm(props: PropertyFormProps) {
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>GPS latitude (optional)</label>
-          <input name="gps_lat" type="number" step="any" className={inputClass} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className={labelClass}>GPS longitude (optional)</label>
-          <input name="gps_lng" type="number" step="any" className={inputClass} />
-        </div>
-      </div>
-
       {embedded && state.error ? (
         <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
       ) : null}
