@@ -6,7 +6,7 @@ import { todayDateString } from "@/lib/format";
 import { JobsList, type JobListRow } from "./jobs-list";
 import { isJobOpen } from "@/lib/job-status";
 import { AddExpenseButton } from "@/components/finances/add-expense-button";
-import type { JobStatus, InvoiceStatus } from "@/types/database";
+import type { JobStatus, InvoiceStatus, PropertyType } from "@/types/database";
 
 const FILTERS = [
   { label: "Open", value: "open" },
@@ -19,7 +19,11 @@ interface JobRowFromDb {
   job_status: JobStatus;
   invoice_status: InvoiceStatus;
   created_at: string;
-  properties: { address: string; customers: { name: string } | null } | null;
+  properties: {
+    address: string;
+    property_type: PropertyType;
+    customers: { name: string } | null;
+  } | null;
 }
 
 interface VisitLookupRow {
@@ -41,13 +45,26 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
   // real pagination here needs the next-visit sort itself pushed into SQL.
   const query = supabase
     .from("jobs")
-    .select("id, job_status, invoice_status, created_at, properties(address, customers(name))")
+    .select(
+      "id, job_status, invoice_status, created_at, properties(address, property_type, customers(name))",
+    )
     .eq("archived", showArchived)
     .order("created_at", { ascending: false })
     .limit(500);
 
-  const { data: jobsData } = await query.returns<JobRowFromDb[]>();
+  const [{ data: jobsData }, { data: brandSettings }] = await Promise.all([
+    query.returns<JobRowFromDb[]>(),
+    supabase.from("business_settings").select("primary_color, accent_color").single(),
+  ]);
   const allJobs = jobsData ?? [];
+  // Same defaults business_settings falls back to elsewhere (see
+  // settings/business/actions.ts) if a row somehow isn't there yet -- keeps
+  // this page's colours in sync with what the business actually configured,
+  // not a hardcoded scheme, without a hard crash if settings are mid-setup.
+  const brandColors = {
+    primary: brandSettings?.primary_color || "#f59e0b",
+    accent: brandSettings?.accent_color || "#3b82f6",
+  };
 
   // "Open" vs "Completed" can't be a plain job_status filter -- a job whose
   // work is physically done but still owes money must stay open (see
@@ -98,6 +115,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
       job_status: job.job_status,
       invoice_status: job.invoice_status,
       address: job.properties?.address ?? "Unknown property",
+      propertyType: job.properties?.property_type ?? "residential",
       customerName: job.properties?.customers?.name ?? null,
       nextVisit: nextVisit
         ? { scheduled_date: nextVisit.scheduled_date, start_time: nextVisit.start_time }
@@ -130,7 +148,8 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
           <AddExpenseButton />
           <Link
             href="/jobs/new"
-            className="flex items-center gap-1.5 rounded-full bg-[#4F9FE0] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#4387BE]"
+            style={{ backgroundColor: brandColors.primary }}
+            className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-white opacity-100 transition-opacity hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
             New Job
@@ -170,7 +189,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/jobs">) {
         </Link>
       </div>
 
-      <JobsList jobs={listRows} />
+      <JobsList jobs={listRows} brandColors={brandColors} />
     </div>
   );
 }

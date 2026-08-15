@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
+import { clsx } from "clsx";
 
 const REVEAL_WIDTH = 88;
 // Minimum movement before we commit to a direction at all -- below this,
@@ -16,6 +17,10 @@ interface SwipeableRowProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   disabled?: boolean;
+  // Applied to the outer (overflow-hidden) container -- lets a caller round
+  // or add a border/shadow to the whole swipeable unit (delete button
+  // included) without that styling living inside this shared component.
+  className?: string;
 }
 
 // Swipe-left-to-reveal-delete, built directly on native touch listeners
@@ -34,6 +39,7 @@ export function SwipeableRow({
   isOpen,
   onOpenChange,
   disabled = false,
+  className,
 }: SwipeableRowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [translateX, setTranslateX] = useState(isOpen ? -REVEAL_WIDTH : 0);
@@ -118,7 +124,7 @@ export function SwipeableRow({
   }, [isOpen, disabled, onOpenChange]);
 
   return (
-    <div ref={containerRef} className="relative touch-pan-y overflow-hidden">
+    <div ref={containerRef} className={clsx("relative touch-pan-y overflow-hidden", className)}>
       <button
         type="button"
         onClick={onDelete}

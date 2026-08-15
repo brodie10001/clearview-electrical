@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Home, Building2, Factory } from "lucide-react";
 import { clsx } from "clsx";
 import { SwipeableRow } from "@/components/ui/swipeable-row";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -10,15 +10,54 @@ import { Toast } from "@/components/ui/toast";
 import { JobStatusBadge, InvoiceStatusBadge } from "@/components/ui/status-badge";
 import { formatVisitDate, formatVisitTime } from "@/lib/format";
 import { deleteJob, archiveJob } from "./actions";
-import type { JobStatus, InvoiceStatus } from "@/types/database";
+import type { JobStatus, InvoiceStatus, PropertyType } from "@/types/database";
 
 export interface JobListRow {
   id: string;
   job_status: JobStatus;
   invoice_status: InvoiceStatus;
   address: string;
+  propertyType: PropertyType;
   customerName: string | null;
   nextVisit: { scheduled_date: string; start_time: string | null } | null;
+}
+
+export interface BrandColors {
+  primary: string;
+  accent: string;
+}
+
+const PROPERTY_TYPE_ICONS: Record<PropertyType, typeof Home> = {
+  residential: Home,
+  commercial: Building2,
+  industrial: Factory,
+};
+
+// The status rail is this page's own "at a glance" colour language, built
+// around the business's actual configured brand colours for the two most
+// central states (Scheduled = primary, Quoting = accent) rather than a
+// generic Tailwind palette -- everything else reuses hues already
+// established by JobStatusBadge (status-badge.tsx) so this doesn't
+// introduce a second, unrelated colour system for the same statuses.
+function railColor(status: JobStatus, brand: BrandColors): string {
+  switch (status) {
+    case "New":
+      return "#a3a3a3"; // neutral-400
+    case "Quoting":
+      return brand.accent;
+    case "Awaiting Approval":
+      return "#f97316"; // orange-500
+    case "Ready to Schedule":
+      return "#8b5cf6"; // violet-500
+    case "Scheduled":
+      return brand.primary;
+    case "On Site":
+      return "#10b981"; // emerald-500
+    case "Completed":
+      return "#22c55e"; // green-500
+    case "Closed":
+      return "#a3a3a3"; // neutral-400
+  }
 }
 
 type DeleteStage =
@@ -26,7 +65,13 @@ type DeleteStage =
   | { name: "blocked"; job: JobListRow; reason: string }
   | { name: "working"; job: JobListRow };
 
-export function JobsList({ jobs: initialJobs }: { jobs: JobListRow[] }) {
+export function JobsList({
+  jobs: initialJobs,
+  brandColors,
+}: {
+  jobs: JobListRow[];
+  brandColors: BrandColors;
+}) {
   const [jobs, setJobs] = useState(initialJobs);
   // The list is server-fetched and only changes page-to-page via navigation
   // (filter links) -- keep local state in sync with that, without an effect
@@ -77,15 +122,20 @@ export function JobsList({ jobs: initialJobs }: { jobs: JobListRow[] }) {
 
   return (
     <>
-      <ul className="flex flex-col divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {jobs.map((job) => (
           <li key={job.id}>
             <SwipeableRow
               isOpen={openRowId === job.id}
               onOpenChange={(open) => setOpenRowId(open ? job.id : null)}
               onDelete={() => setStage({ name: "confirm", job })}
+              className="rounded-2xl border border-neutral-200 shadow-sm shadow-neutral-900/[0.03] dark:border-neutral-800"
             >
-              <JobRow job={job} onRequestDelete={() => setStage({ name: "confirm", job })} />
+              <JobRow
+                job={job}
+                brandColors={brandColors}
+                onRequestDelete={() => setStage({ name: "confirm", job })}
+              />
             </SwipeableRow>
           </li>
         ))}
@@ -118,7 +168,15 @@ export function JobsList({ jobs: initialJobs }: { jobs: JobListRow[] }) {
   );
 }
 
-function JobRow({ job, onRequestDelete }: { job: JobListRow; onRequestDelete: () => void }) {
+function JobRow({
+  job,
+  brandColors,
+  onRequestDelete,
+}: {
+  job: JobListRow;
+  brandColors: BrandColors;
+  onRequestDelete: () => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -151,32 +209,47 @@ function JobRow({ job, onRequestDelete }: { job: JobListRow; onRequestDelete: ()
     }
   }, [menuOpen]);
 
+  const PropertyIcon = PROPERTY_TYPE_ICONS[job.propertyType];
+
   return (
-    <div className="flex items-center gap-1 bg-white pr-1 dark:bg-neutral-900">
+    <div className="flex items-stretch gap-0 bg-white pr-1 dark:bg-neutral-900">
+      <span
+        aria-hidden
+        className="w-1.5 shrink-0"
+        style={{ backgroundColor: railColor(job.job_status, brandColors) }}
+      />
+
       <Link
         href={`/jobs/${job.id}`}
-        className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-3.5 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+        className="flex min-w-0 flex-1 items-start justify-between gap-3 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800"
       >
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
-            {job.address}
-          </p>
-          <p className="truncate text-xs text-neutral-500">
-            {job.customerName ?? "No customer"}
-            {job.nextVisit
-              ? ` · ${formatVisitDate(job.nextVisit.scheduled_date)}${
-                  job.nextVisit.start_time ? ` ${formatVisitTime(job.nextVisit.start_time)}` : ""
-                }`
-              : ""}
-          </p>
+        <div className="flex min-w-0 items-start gap-2.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+            <PropertyIcon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-50">
+              {job.address}
+            </p>
+            <p className="truncate text-xs text-neutral-500">
+              {job.customerName ?? "No customer"}
+              {job.nextVisit
+                ? ` · ${formatVisitDate(job.nextVisit.scheduled_date)}${
+                    job.nextVisit.start_time ? ` ${formatVisitTime(job.nextVisit.start_time)}` : ""
+                  }`
+                : ""}
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <JobStatusBadge status={job.job_status} invoiceStatus={job.invoice_status} />
-          <InvoiceStatusBadge status={job.invoice_status} />
+          {job.invoice_status !== "Not Required" ? (
+            <InvoiceStatusBadge status={job.invoice_status} />
+          ) : null}
         </div>
       </Link>
 
-      <div ref={menuRef} className="relative hidden shrink-0 sm:block">
+      <div ref={menuRef} className="relative hidden shrink-0 self-start sm:block">
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
