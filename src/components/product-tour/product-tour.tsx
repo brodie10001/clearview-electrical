@@ -27,6 +27,11 @@ const STEPS: TourStep[] = [
     body: "Every job you're running, from first quote to final invoice.",
   },
   {
+    target: "profile-menu",
+    title: "Business Settings",
+    body: "Tap here, then Settings, to set your labour rates, materials catalogue, suppliers, and more.",
+  },
+  {
     target: "help-button",
     title: "Stuck, or found a bug?",
     body: "Tap here — it comes straight to me.",

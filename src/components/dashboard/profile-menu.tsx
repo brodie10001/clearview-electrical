@@ -32,6 +32,7 @@ export function ProfileMenu({
         onClick={() => setOpen((v) => !v)}
         aria-label="Account menu"
         aria-expanded={open}
+        data-tour="profile-menu"
         className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500 text-xs font-semibold text-white">
