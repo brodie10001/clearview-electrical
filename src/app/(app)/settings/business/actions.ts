@@ -186,6 +186,189 @@ export async function dismissCategoryReview(productId: string) {
   revalidatePath("/settings/business");
 }
 
+// Moves a product to a different generic material -- for the case where a
+// specific branded product was mistakenly created as its own standalone
+// generic material rather than nested under an existing generic one (e.g.
+// "Clipsal Classic Double GPO White" should be a product under "Double
+// Power Point", not a material of its own). is_preferred is reset since
+// only one product per generic material can hold it (partial unique
+// index) and "preferred" is meaningful per-material, not portable.
+export async function moveCatalogueProductToMaterial(productId: string, newMaterialId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("catalogue_products")
+    .update({ generic_material_id: newMaterialId, is_preferred: false })
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
+
+// Merges a duplicate catalogue product into a canonical one and deletes
+// the duplicate -- for when the same branded product ended up as two (or
+// more) separate rows, most often because the supplier-import matcher only
+// ever checked this supplier's own previous SKU, never an existing product
+// with the same brand/name (see commitSupplierImport). Quotes are never
+// affected: quote_line_items/quote_service_item_lines snapshot their own
+// cost/price at the time they were added and hold no live dependency on
+// catalogue_products, so deleting the duplicate here can't retroactively
+// change anything already quoted or invoiced.
+//
+// Everything else that *does* hold a live reference gets carried over
+// first, respecting each table's own constraints:
+// - supplier_product_prices: unique on (catalogue_product_id, supplier_id)
+//   -- if the target already has a price from that supplier, the
+//   duplicate's is dropped (the target's is treated as authoritative);
+//   otherwise the row is re-pointed onto the target.
+// - vehicle_stock: unique on catalogue_product_id (one stock row per
+//   product) -- quantities are summed onto the target's row rather than
+//   silently dropping stock; if the target has no stock row yet, the
+//   duplicate's is just re-pointed.
+// - vehicle_stock_movements: no uniqueness constraint, re-pointed directly
+//   so the full stock history stays attached to the surviving product.
+// - price_book_item_materials: no uniqueness constraint at the DB level,
+//   but a price book item's material list would end up listing the same
+//   product twice if both duplicate and target were already in its
+//   recipe -- when that happens the duplicate's line is dropped instead
+//   of re-pointed, so a recipe's cost doesn't silently double.
+export async function mergeCatalogueProducts(duplicateProductId: string, targetProductId: string) {
+  if (duplicateProductId === targetProductId) {
+    throw new Error("Can't merge a product into itself.");
+  }
+
+  const supabase = await createClient();
+
+  const [dupPricesRes, targetPricesRes] = await Promise.all([
+    supabase
+      .from("supplier_product_prices")
+      .select("id, supplier_id")
+      .eq("catalogue_product_id", duplicateProductId),
+    supabase
+      .from("supplier_product_prices")
+      .select("supplier_id")
+      .eq("catalogue_product_id", targetProductId),
+  ]);
+  if (dupPricesRes.error) throw new Error(dupPricesRes.error.message);
+  if (targetPricesRes.error) throw new Error(targetPricesRes.error.message);
+
+  const targetSupplierIds = new Set((targetPricesRes.data ?? []).map((p) => p.supplier_id));
+  for (const price of dupPricesRes.data ?? []) {
+    if (targetSupplierIds.has(price.supplier_id)) {
+      await supabase.from("supplier_product_prices").delete().eq("id", price.id);
+    } else {
+      await supabase
+        .from("supplier_product_prices")
+        .update({ catalogue_product_id: targetProductId })
+        .eq("id", price.id);
+    }
+  }
+
+  const [dupStockRes, targetStockRes] = await Promise.all([
+    supabase
+      .from("vehicle_stock")
+      .select("id, quantity_on_hand")
+      .eq("catalogue_product_id", duplicateProductId)
+      .maybeSingle(),
+    supabase
+      .from("vehicle_stock")
+      .select("id, quantity_on_hand")
+      .eq("catalogue_product_id", targetProductId)
+      .maybeSingle(),
+  ]);
+  if (dupStockRes.error) throw new Error(dupStockRes.error.message);
+  if (targetStockRes.error) throw new Error(targetStockRes.error.message);
+
+  if (dupStockRes.data) {
+    if (targetStockRes.data) {
+      await supabase
+        .from("vehicle_stock")
+        .update({
+          quantity_on_hand: targetStockRes.data.quantity_on_hand + dupStockRes.data.quantity_on_hand,
+        })
+        .eq("id", targetStockRes.data.id);
+      await supabase.from("vehicle_stock").delete().eq("id", dupStockRes.data.id);
+    } else {
+      await supabase
+        .from("vehicle_stock")
+        .update({ catalogue_product_id: targetProductId })
+        .eq("id", dupStockRes.data.id);
+    }
+  }
+
+  const { error: movementsError } = await supabase
+    .from("vehicle_stock_movements")
+    .update({ catalogue_product_id: targetProductId })
+    .eq("catalogue_product_id", duplicateProductId);
+  if (movementsError) throw new Error(movementsError.message);
+
+  const [dupRecipeRes, targetRecipeRes] = await Promise.all([
+    supabase
+      .from("price_book_item_materials")
+      .select("id, price_book_item_id")
+      .eq("catalogue_product_id", duplicateProductId),
+    supabase
+      .from("price_book_item_materials")
+      .select("price_book_item_id")
+      .eq("catalogue_product_id", targetProductId),
+  ]);
+  if (dupRecipeRes.error) throw new Error(dupRecipeRes.error.message);
+  if (targetRecipeRes.error) throw new Error(targetRecipeRes.error.message);
+
+  const targetRecipeItemIds = new Set((targetRecipeRes.data ?? []).map((r) => r.price_book_item_id));
+  for (const link of dupRecipeRes.data ?? []) {
+    if (targetRecipeItemIds.has(link.price_book_item_id)) {
+      await supabase.from("price_book_item_materials").delete().eq("id", link.id);
+    } else {
+      await supabase
+        .from("price_book_item_materials")
+        .update({ catalogue_product_id: targetProductId })
+        .eq("id", link.id);
+    }
+  }
+
+  // quote_line_items.source_catalogue_product_id -- deliberately left
+  // alone here: it's a reporting-only reference (on delete set null), and
+  // the row it points at is a permanent quote snapshot regardless. It's
+  // fine for it to briefly point at the about-to-be-deleted duplicate and
+  // then null out.
+  const { error: deleteError } = await supabase
+    .from("catalogue_products")
+    .delete()
+    .eq("id", duplicateProductId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  revalidatePath("/settings/business");
+}
+
+// Merges a duplicate generic material into a canonical one -- moves every
+// product under the duplicate onto the target, then deletes the
+// now-empty duplicate. is_preferred is reset on every moved product for
+// the same reason as moveCatalogueProductToMaterial: it's meaningful
+// per-material, and the target may already have its own preferred
+// product.
+export async function mergeGenericMaterials(duplicateMaterialId: string, targetMaterialId: string) {
+  if (duplicateMaterialId === targetMaterialId) {
+    throw new Error("Can't merge a material into itself.");
+  }
+
+  const supabase = await createClient();
+
+  const { error: moveError } = await supabase
+    .from("catalogue_products")
+    .update({ generic_material_id: targetMaterialId, is_preferred: false })
+    .eq("generic_material_id", duplicateMaterialId);
+  if (moveError) throw new Error(moveError.message);
+
+  const { error: deleteError } = await supabase
+    .from("generic_materials")
+    .delete()
+    .eq("id", duplicateMaterialId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  revalidatePath("/settings/business");
+}
+
 export async function toggleCatalogueProductActive(productId: string, active: boolean) {
   const supabase = await createClient();
   const { error } = await supabase

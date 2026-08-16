@@ -10,9 +10,12 @@ import {
   X,
   RefreshCw,
   AlertTriangle,
+  FolderInput,
+  GitMerge,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { NumericInput } from "@/components/ui/numeric-input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   createGenericMaterial,
   toggleGenericMaterialActive,
@@ -24,6 +27,9 @@ import {
   setPreferredSupplierPrice,
   dismissSupplierPriceReview,
   dismissCategoryReview,
+  moveCatalogueProductToMaterial,
+  mergeCatalogueProducts,
+  mergeGenericMaterials,
 } from "./actions";
 import type {
   GenericMaterialData,
@@ -64,6 +70,32 @@ export function MaterialsCatalogueSection({
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [reviewOnly, setReviewOnly] = useState(false);
 
+  // Cleanup tooling: fixing catalogue fragmentation (duplicate products a
+  // supplier-import mismatch created, or a specific branded product that
+  // was mistakenly set up as its own generic material) doesn't touch
+  // quotes -- quote_line_items/quote_service_item_lines snapshot their own
+  // cost/price at add-time and hold no live reference to the catalogue.
+  const [movingProductId, setMovingProductId] = useState<string | null>(null);
+  const [mergingProductId, setMergingProductId] = useState<string | null>(null);
+  const [mergingMaterialId, setMergingMaterialId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    label: string;
+    message: string;
+    run: () => Promise<void>;
+  } | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  async function runPendingAction() {
+    if (!pendingAction) return;
+    setConfirming(true);
+    try {
+      await pendingAction.run();
+    } finally {
+      setConfirming(false);
+      setPendingAction(null);
+    }
+  }
+
   function toggleExpanded(materialId: string) {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -82,6 +114,23 @@ export function MaterialsCatalogueSection({
     }
     return map;
   }, [products]);
+
+  const materialById = useMemo(() => new Map(materials.map((m) => [m.id, m])), [materials]);
+
+  // Flat, alphabetised "Material — Brand Product" list for the merge-target
+  // picker -- a product can be merged into any other product regardless of
+  // which material it's currently under, since the whole point is fixing
+  // mismatches between the two.
+  const allProductOptions = useMemo(
+    () =>
+      products
+        .map((p) => ({
+          id: p.id,
+          label: `${materialById.get(p.generic_material_id)?.name ?? "Unknown material"} — ${productLabel(p)}`,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [products, materialById],
+  );
 
   const reviewCount = useMemo(
     () => products.filter((p) => p.needs_category_review).length,
@@ -280,9 +329,78 @@ export function MaterialsCatalogueSection({
                                       >
                                         {product.active ? "Archive" : "Restore"}
                                       </button>
+                                      <button
+                                        onClick={() => {
+                                          setMovingProductId(
+                                            movingProductId === product.id ? null : product.id,
+                                          );
+                                          setMergingProductId(null);
+                                        }}
+                                        className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                                        aria-label="Move to a different material"
+                                        title="Move to a different material"
+                                      >
+                                        <FolderInput className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setMergingProductId(
+                                            mergingProductId === product.id ? null : product.id,
+                                          );
+                                          setMovingProductId(null);
+                                        }}
+                                        className="rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+                                        aria-label="Merge into another product"
+                                        title="Merge into another product"
+                                      >
+                                        <GitMerge className="h-3.5 w-3.5" />
+                                      </button>
                                     </div>
                                   ) : null}
                                 </div>
+
+                                {movingProductId === product.id ? (
+                                  <MoveOrMergePicker
+                                    placeholder="Move to material..."
+                                    options={materials
+                                      .filter((m) => m.id !== material.id)
+                                      .map((m) => ({ id: m.id, label: m.name }))}
+                                    confirmLabel="Move"
+                                    onCancel={() => setMovingProductId(null)}
+                                    onConfirm={(targetId) => {
+                                      const targetName = materialById.get(targetId)?.name ?? "";
+                                      setMovingProductId(null);
+                                      setPendingAction({
+                                        label: "Move product",
+                                        message: `Move "${productLabel(product)}" from "${material.name}" to "${targetName}"? Its preferred-product status will be cleared.`,
+                                        run: async () => {
+                                          await moveCatalogueProductToMaterial(product.id, targetId);
+                                        },
+                                      });
+                                    }}
+                                  />
+                                ) : null}
+
+                                {mergingProductId === product.id ? (
+                                  <MoveOrMergePicker
+                                    placeholder="Merge into..."
+                                    options={allProductOptions.filter((o) => o.id !== product.id)}
+                                    confirmLabel="Merge"
+                                    onCancel={() => setMergingProductId(null)}
+                                    onConfirm={(targetId) => {
+                                      const targetLabel =
+                                        allProductOptions.find((o) => o.id === targetId)?.label ?? "";
+                                      setMergingProductId(null);
+                                      setPendingAction({
+                                        label: "Merge product",
+                                        message: `Merge "${productLabel(product)}" into "${targetLabel}"? This deletes the duplicate and moves its supplier prices and stock across. Quotes already using either product are never affected.`,
+                                        run: async () => {
+                                          await mergeCatalogueProducts(product.id, targetId);
+                                        },
+                                      });
+                                    }}
+                                  />
+                                ) : null}
 
                                 <SupplierPricesList
                                   productId={product.id}
@@ -308,21 +426,56 @@ export function MaterialsCatalogueSection({
                             onCancel={() => setAddingProductFor(null)}
                           />
                         ) : (
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => setAddingProductFor(material.id)}
-                              className="flex items-center gap-1.5 self-start rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                            >
-                              <Plus className="h-3.5 w-3.5" /> Add product
-                            </button>
-                            <button
-                              onClick={() =>
-                                toggleGenericMaterialActive(material.id, !material.active)
-                              }
-                              className="text-xs font-medium text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
-                            >
-                              {material.active ? "Archive material type" : "Restore material type"}
-                            </button>
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => setAddingProductFor(material.id)}
+                                className="flex items-center gap-1.5 self-start rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                              >
+                                <Plus className="h-3.5 w-3.5" /> Add product
+                              </button>
+                              <button
+                                onClick={() =>
+                                  toggleGenericMaterialActive(material.id, !material.active)
+                                }
+                                className="text-xs font-medium text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                              >
+                                {material.active ? "Archive material type" : "Restore material type"}
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setMergingMaterialId(
+                                    mergingMaterialId === material.id ? null : material.id,
+                                  )
+                                }
+                                className="flex items-center gap-1 text-xs font-medium text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
+                              >
+                                <GitMerge className="h-3 w-3" /> Merge into...
+                              </button>
+                            </div>
+
+                            {mergingMaterialId === material.id ? (
+                              <MoveOrMergePicker
+                                placeholder="Merge into material..."
+                                options={materials
+                                  .filter((m) => m.id !== material.id)
+                                  .map((m) => ({ id: m.id, label: m.name }))}
+                                confirmLabel="Merge"
+                                onCancel={() => setMergingMaterialId(null)}
+                                onConfirm={(targetId) => {
+                                  const targetName = materialById.get(targetId)?.name ?? "";
+                                  const count = materialProducts.length;
+                                  setMergingMaterialId(null);
+                                  setPendingAction({
+                                    label: "Merge material",
+                                    message: `Merge "${material.name}" into "${targetName}"? Its ${count} product${count === 1 ? "" : "s"} move across and "${material.name}" is deleted. Quotes are never affected.`,
+                                    run: async () => {
+                                      await mergeGenericMaterials(material.id, targetId);
+                                    },
+                                  });
+                                }}
+                              />
+                            ) : null}
                           </div>
                         )
                       ) : null}
@@ -382,6 +535,16 @@ export function MaterialsCatalogueSection({
           </button>
         )
       ) : null}
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onClose={() => setPendingAction(null)}
+        title={pendingAction?.label ?? ""}
+        message={pendingAction?.message ?? ""}
+        confirmLabel={pendingAction?.label ?? "Confirm"}
+        confirming={confirming}
+        onConfirm={runPendingAction}
+      />
     </div>
   );
 }
@@ -694,5 +857,60 @@ function SupplierPriceForm({
         Cancel
       </button>
     </form>
+  );
+}
+
+// Shared inline picker for the Move/Merge actions above -- a compact
+// select + confirm/cancel, matching the reveal-a-small-form pattern
+// already used for adding a product or a supplier price elsewhere in this
+// file, rather than a separate modal. The actual mutation only runs after
+// the caller's onConfirm routes it through the shared ConfirmDialog.
+function MoveOrMergePicker({
+  placeholder,
+  options,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  placeholder: string;
+  options: { id: string; label: string }[];
+  confirmLabel: string;
+  onConfirm: (targetId: string) => void;
+  onCancel: () => void;
+}) {
+  const [targetId, setTargetId] = useState("");
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-neutral-50 p-2 dark:bg-neutral-800/60">
+      <select
+        value={targetId}
+        onChange={(e) => setTargetId(e.target.value)}
+        className={clsx(inputClass, "min-w-0 flex-1 py-1 text-xs")}
+      >
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        disabled={!targetId}
+        onClick={() => targetId && onConfirm(targetId)}
+        className="rounded-md bg-amber-500 px-2 py-1 text-xs font-semibold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {confirmLabel}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded-md px-1.5 py-1 text-xs text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      >
+        Cancel
+      </button>
+    </div>
   );
 }
