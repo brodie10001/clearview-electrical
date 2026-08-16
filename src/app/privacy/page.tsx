@@ -175,7 +175,10 @@ export default function PrivacyPage() {
           </h2>
           <p>
             Questions about this policy, or a request about your data? Contact us at{" "}
-            <span className="font-medium">[add your contact email here]</span>.
+            <a href="mailto:brodienugent@gmail.com" className="font-medium underline">
+              brodienugent@gmail.com
+            </a>
+            .
           </p>
         </section>
       </div>
