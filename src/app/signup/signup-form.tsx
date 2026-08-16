@@ -178,6 +178,26 @@ export function SignupForm() {
               />
             </div>
 
+            <label className="flex items-start gap-2 text-xs text-neutral-500">
+              <input
+                name="agreed_to_terms"
+                type="checkbox"
+                required
+                className="mt-0.5 h-3.5 w-3.5 shrink-0"
+              />
+              <span>
+                I agree to Ralden&apos;s{" "}
+                <Link href="/terms" className="underline hover:text-amber-600">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="underline hover:text-amber-600">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+
             {state.error ? (
               <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
             ) : null}
@@ -189,18 +209,6 @@ export function SignupForm() {
             >
               {pending ? "Creating account..." : "Create account"}
             </button>
-
-            <p className="text-center text-xs text-neutral-400">
-              By creating an account, you agree to Ralden&apos;s{" "}
-              <Link href="/terms" className="underline hover:text-amber-600">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="underline hover:text-amber-600">
-                Privacy Policy
-              </Link>
-              .
-            </p>
 
             <p className="text-center text-sm text-neutral-500">
               Already have an account?{" "}

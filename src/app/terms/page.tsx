@@ -172,7 +172,10 @@ export default function TermsPage() {
           </h2>
           <p>
             Questions about these Terms? Contact us at{" "}
-            <span className="font-medium">[add your contact email here]</span>.
+            <a href="mailto:brodienugent@gmail.com" className="font-medium underline">
+              brodienugent@gmail.com
+            </a>
+            .
           </p>
         </section>
       </div>

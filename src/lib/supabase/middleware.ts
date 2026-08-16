@@ -78,8 +78,20 @@ export async function updateSession(request: NextRequest) {
   const isPasswordResetRoute =
     request.nextUrl.pathname.startsWith("/forgot-password") ||
     request.nextUrl.pathname.startsWith("/auth/callback");
+  // Terms/privacy need to be readable before signing up -- linked straight
+  // off the sign-up form's consent checkbox, which someone hasn't agreed to
+  // yet at the point they're clicking through to read them.
+  const isLegalRoute =
+    request.nextUrl.pathname.startsWith("/terms") ||
+    request.nextUrl.pathname.startsWith("/privacy");
 
-  if (!user && !isAuthRoute && !isPublicQuoteRoute && !isPasswordResetRoute) {
+  if (
+    !user &&
+    !isAuthRoute &&
+    !isPublicQuoteRoute &&
+    !isPasswordResetRoute &&
+    !isLegalRoute
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
