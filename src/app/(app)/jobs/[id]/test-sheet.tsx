@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, X, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, CheckCircle2, XCircle, Plus } from "lucide-react";
 import { clsx } from "clsx";
 import { bulkCreateTestRecords } from "../actions";
+import { createPropertyCircuit } from "@/app/(app)/properties/actions";
 import { queueOfflineTestSheet } from "@/lib/offline-test-sheet-queue";
 import type { TestResult } from "@/types/database";
 import type { TestTypeOption, CircuitOption } from "./compliance-section";
@@ -111,20 +112,24 @@ function rcdGroupKey(circuit: CircuitOption) {
 
 export function TestSheet({
   jobId,
+  propertyId,
   circuits,
   testTypes,
   workers,
   currentUserId,
   onClose,
   onSaved,
+  onCircuitsChanged,
 }: {
   jobId: string;
+  propertyId: string;
   circuits: CircuitOption[];
   testTypes: TestTypeOption[];
   workers: { id: string; full_name: string | null; email: string | null }[];
   currentUserId: string;
   onClose: () => void;
   onSaved: () => void;
+  onCircuitsChanged: () => void;
 }) {
   const testTypeIdByName = useMemo(() => {
     const map = new Map<string, string>();
@@ -141,6 +146,28 @@ export function TestSheet({
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addingCircuit, setAddingCircuit] = useState(circuits.length === 0);
+  const [addCircuitError, setAddCircuitError] = useState<string | null>(null);
+  const [addingCircuitPending, setAddingCircuitPending] = useState(false);
+
+  async function handleAddCircuit(formData: FormData) {
+    setAddingCircuitPending(true);
+    setAddCircuitError(null);
+    try {
+      await createPropertyCircuit(propertyId, formData);
+      // Adding a circuit mid-sheet must not lose unsaved entries: rows
+      // is keyed by circuit id and only ever grows here (existing entries
+      // are never touched), and onCircuitsChanged just asks the parent to
+      // re-fetch circuits -- the new circuit's row lazily defaults to
+      // emptyRow() wherever it's read, same as every existing row.
+      onCircuitsChanged();
+      setAddingCircuit(false);
+    } catch (err) {
+      setAddCircuitError(err instanceof Error ? err.message : "Failed to add circuit.");
+    } finally {
+      setAddingCircuitPending(false);
+    }
+  }
 
   function setCell(circuitId: string, column: ColumnKey, patch: Partial<CellState>) {
     setRows((prev) => {
@@ -272,15 +299,24 @@ export function TestSheet({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div className="w-full max-w-sm rounded-2xl bg-white p-4 dark:bg-neutral-900">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            This property has no circuit schedule yet. Add circuits on the property&apos;s
-            Electrical tab first, then come back here to run the test sheet.
+          <h2 className="mb-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+            No circuits yet
+          </h2>
+          <p className="mb-3 text-sm text-neutral-600 dark:text-neutral-400">
+            This property has no circuit schedule yet. Add the first circuit here to start the
+            test sheet -- it&apos;s saved to the property, so it&apos;s reused on every future job
+            here too.
           </p>
+          <AddCircuitForm
+            pending={addingCircuitPending}
+            error={addCircuitError}
+            onSubmit={handleAddCircuit}
+          />
           <button
             onClick={onClose}
-            className="mt-4 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+            className="mt-3 text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
           >
-            Close
+            Cancel
           </button>
         </div>
       </div>
@@ -332,6 +368,13 @@ export function TestSheet({
             className={clsx(inputClass, "w-36")}
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setAddingCircuit(true)}
+          className="flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add circuit
+        </button>
         <div className="ml-auto flex items-center gap-3 text-xs text-neutral-500">
           <span>{summary.tested} tested</span>
           <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
@@ -342,6 +385,17 @@ export function TestSheet({
           </span>
         </div>
       </div>
+
+      {addingCircuit ? (
+        <div className="border-b border-neutral-200 p-3 dark:border-neutral-800">
+          <AddCircuitForm
+            pending={addingCircuitPending}
+            error={addCircuitError}
+            onSubmit={handleAddCircuit}
+            onCancel={() => setAddingCircuit(false)}
+          />
+        </div>
+      ) : null}
 
       {/* Tablet/desktop: grid, frozen circuit column, horizontal scroll. */}
       <div className="hidden flex-1 overflow-auto sm:block">
@@ -567,5 +621,74 @@ function TestCell({
         </button>
       </div>
     </div>
+  );
+}
+
+function AddCircuitForm({
+  pending,
+  error,
+  onSubmit,
+  onCancel,
+}: {
+  pending: boolean;
+  error: string | null;
+  onSubmit: (formData: FormData) => void | Promise<void>;
+  onCancel?: () => void;
+}) {
+  const [rcdProtected, setRcdProtected] = useState(false);
+
+  return (
+    <form
+      action={async (formData) => {
+        await onSubmit(formData);
+      }}
+      className="flex flex-col gap-2"
+    >
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <input name="switchboard_ref" placeholder="Switchboard (optional)" className={inputClass} />
+        <input name="circuit_number" required placeholder="Circuit no." className={inputClass} />
+        <input
+          name="description"
+          required
+          placeholder="Description, e.g. Kitchen GPOs"
+          className={clsx(inputClass, "col-span-2")}
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input name="protective_device_rating" placeholder="Device rating (optional)" className={inputClass} />
+        <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+          <input
+            name="rcd_protected"
+            type="checkbox"
+            checked={rcdProtected}
+            onChange={(e) => setRcdProtected(e.target.checked)}
+            className="h-3.5 w-3.5"
+          />
+          RCD protected
+        </label>
+        {rcdProtected ? (
+          <input name="rcd_ref" placeholder="RCD ref, e.g. RCD1" className={clsx(inputClass, "w-28")} />
+        ) : null}
+      </div>
+      {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
+      <div className="flex gap-1">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
+        >
+          {pending ? "Adding..." : "Add circuit"}
+        </button>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+        ) : null}
+      </div>
+    </form>
   );
 }

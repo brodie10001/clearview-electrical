@@ -504,6 +504,7 @@ export function ComplianceSection({
       {showSheet ? (
         <TestSheet
           jobId={jobId}
+          propertyId={propertyId}
           circuits={circuits}
           testTypes={testTypes}
           workers={workers}
@@ -513,6 +514,7 @@ export function ComplianceSection({
             setShowSheet(false);
             refresh();
           }}
+          onCircuitsChanged={refresh}
         />
       ) : null}
     </div>
