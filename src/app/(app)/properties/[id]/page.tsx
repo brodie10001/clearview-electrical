@@ -58,6 +58,20 @@ export interface PropertyElectricalData {
   men_location: string | null;
 }
 
+export interface PropertyCircuitData {
+  id: string;
+  switchboard_ref: string | null;
+  circuit_number: string;
+  description: string;
+  protective_device_type: string | null;
+  protective_device_rating: string | null;
+  rcd_protected: boolean;
+  rcd_ref: string | null;
+  cable_size: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
 export interface PropertyContactData {
   id: string;
   role: PropertyContactRole;
@@ -145,47 +159,63 @@ export default async function PropertyDetailPage({ params }: PageProps<"/propert
   const { id } = await params;
   const supabase = await createClient();
 
-  const [propertyRes, accessRes, electricalRes, contactsRes, documentsRes, jobsRes, allContactsRes] =
-    await Promise.all([
-      supabase
-        .from("properties")
-        .select("id, address, gps_lat, gps_lng, property_type, status, created_at, customers(id, name, phone, email)")
-        .eq("id", id)
-        .single()
-        .returns<PropertyDetailData>(),
-      supabase
-        .from("property_access")
-        .select(
-          "gate_code, alarm_instructions, lockbox_location, parking_instructions, pets_notes, hazards_notes, ceiling_access_notes, roof_access_notes, restricted_areas_notes",
-        )
-        .eq("property_id", id)
-        .maybeSingle(),
-      supabase
-        .from("property_electrical")
-        .select(
-          "switchboard_location, switchboard_brand, main_switch_rating, phase_type, consumer_mains_size, meter_number, solar_installed, battery_installed, generator_installed, surge_protection, ev_charger, existing_rcds, existing_rcbos, main_earth_location, men_location",
-        )
-        .eq("property_id", id)
-        .maybeSingle(),
-      supabase
-        .from("property_contacts")
-        .select("id, role, contacts(id, name, phone, email)")
-        .eq("property_id", id)
-        .returns<PropertyContactData[]>(),
-      supabase
-        .from("documents")
-        .select("id, type, photo_category, file_url, caption, created_at, job_id")
-        .eq("property_id", id)
-        .order("created_at", { ascending: false })
-        .returns<Omit<PropertyDocumentData, "createdAtLabel">[]>(),
-      supabase
-        .from("jobs")
-        .select("id, job_status, invoice_status, created_at")
-        .eq("property_id", id)
-        .order("created_at", { ascending: false })
-        .returns<Omit<PropertyJobData, "createdAtLabel" | "nextVisitLabel">[]>(),
-      supabase.from("contacts").select("id, name").order("name"),
-    ]);
+  const [
+    propertyRes,
+    accessRes,
+    electricalRes,
+    circuitsRes,
+    contactsRes,
+    documentsRes,
+    jobsRes,
+    allContactsRes,
+  ] = await Promise.all([
+    supabase
+      .from("properties")
+      .select("id, address, gps_lat, gps_lng, property_type, status, created_at, customers(id, name, phone, email)")
+      .eq("id", id)
+      .single()
+      .returns<PropertyDetailData>(),
+    supabase
+      .from("property_access")
+      .select(
+        "gate_code, alarm_instructions, lockbox_location, parking_instructions, pets_notes, hazards_notes, ceiling_access_notes, roof_access_notes, restricted_areas_notes",
+      )
+      .eq("property_id", id)
+      .maybeSingle(),
+    supabase
+      .from("property_electrical")
+      .select(
+        "switchboard_location, switchboard_brand, main_switch_rating, phase_type, consumer_mains_size, meter_number, solar_installed, battery_installed, generator_installed, surge_protection, ev_charger, existing_rcds, existing_rcbos, main_earth_location, men_location",
+      )
+      .eq("property_id", id)
+      .maybeSingle(),
+    supabase
+      .from("property_circuits")
+      .select(
+        "id, switchboard_ref, circuit_number, description, protective_device_type, protective_device_rating, rcd_protected, rcd_ref, cable_size, sort_order, is_active",
+      )
+      .eq("property_id", id)
+      .order("sort_order")
+      .returns<PropertyCircuitData[]>(),
+    supabase
+      .from("property_contacts")
+      .select("id, role, contacts(id, name, phone, email)")
+      .eq("property_id", id)
+      .returns<PropertyContactData[]>(),
+    supabase
+      .from("documents")
+      .select("id, type, photo_category, file_url, caption, created_at, job_id")
+      .eq("property_id", id)
+      .order("created_at", { ascending: false })
+      .returns<Omit<PropertyDocumentData, "createdAtLabel">[]>(),
+    supabase
+      .from("jobs")
+      .select("id, job_status, invoice_status, created_at")
+      .eq("property_id", id)
+      .order("created_at", { ascending: false })
+      .returns<Omit<PropertyJobData, "createdAtLabel" | "nextVisitLabel">[]>(),
+    supabase.from("contacts").select("id, name").order("name"),
+  ]);
 
   if (propertyRes.error || !propertyRes.data) notFound();
 
@@ -345,6 +375,7 @@ export default async function PropertyDetailPage({ params }: PageProps<"/propert
       propertyCreatedAtLabel={formatDate(propertyRes.data.created_at)}
       access={accessRes.data as PropertyAccessData | null}
       electrical={electricalRes.data as PropertyElectricalData | null}
+      circuits={circuitsRes.data ?? []}
       contacts={contactsRes.data ?? []}
       documents={documents}
       jobs={jobs}

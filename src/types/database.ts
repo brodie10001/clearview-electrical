@@ -517,6 +517,10 @@ export interface Database {
           bank_account_number: string | null;
           payment_instructions: string | null;
           default_quote_validity_days: number | null;
+          insulation_resistance_min_mohm: number | null;
+          rcd_trip_time_max_ms: number | null;
+          rcd_trip_current_max_ma: number | null;
+          test_thresholds_confirmed: boolean;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["business_settings"]["Row"]>;
@@ -1262,6 +1266,7 @@ export interface Database {
           business_id: string;
           id: string;
           job_id: string;
+          circuit_id: string | null;
           circuit_or_equipment: string;
           test_type_id: string;
           custom_test_type_label: string | null;
@@ -1272,6 +1277,11 @@ export interface Database {
           tested_at: string;
           tested_by: string | null;
           notes: string | null;
+          is_superseded: boolean;
+          supersedes_id: string | null;
+          amended_reason: string | null;
+          amended_at: string | null;
+          amended_by: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["test_records"]["Row"]> & {
@@ -1301,6 +1311,61 @@ export interface Database {
             columns: ["tested_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "test_records_circuit_id_fkey";
+            columns: ["circuit_id"];
+            isOneToOne: false;
+            referencedRelation: "property_circuits";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "test_records_supersedes_id_fkey";
+            columns: ["supersedes_id"];
+            isOneToOne: false;
+            referencedRelation: "test_records";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "test_records_amended_by_fkey";
+            columns: ["amended_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      property_circuits: {
+        Row: {
+          id: string;
+          business_id: string;
+          property_id: string;
+          switchboard_ref: string | null;
+          circuit_number: string;
+          description: string;
+          protective_device_type: string | null;
+          protective_device_rating: string | null;
+          rcd_protected: boolean;
+          rcd_ref: string | null;
+          cable_size: string | null;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["property_circuits"]["Row"]> & {
+          property_id: string;
+          circuit_number: string;
+          description: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["property_circuits"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "property_circuits_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
             referencedColumns: ["id"];
           },
         ];

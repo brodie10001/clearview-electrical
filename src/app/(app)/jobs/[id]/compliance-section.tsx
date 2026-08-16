@@ -3,11 +3,17 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Circle, Plus, Trash2, FileCheck2 } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Trash2, FileCheck2, Grid3x3, Lock, History } from "lucide-react";
 import { clsx } from "clsx";
-import { createTestRecord, deleteTestRecord, updateJobComplianceStatus } from "../actions";
+import {
+  createTestRecord,
+  deleteTestRecord,
+  amendTestRecord,
+  updateJobComplianceStatus,
+} from "../actions";
 import { createComplianceDocument } from "@/app/(app)/compliance-documents/actions";
 import { TestResultBadge, ComplianceDocumentStatusBadge } from "@/components/ui/status-badge";
+import { TestSheet } from "./test-sheet";
 import { formatDate } from "@/lib/format";
 import type {
   TestResult,
@@ -31,8 +37,18 @@ export interface TestTypeOption {
   is_custom: boolean;
 }
 
+export interface CircuitOption {
+  id: string;
+  switchboard_ref: string | null;
+  circuit_number: string;
+  description: string;
+  rcd_protected: boolean;
+  rcd_ref: string | null;
+}
+
 export interface TestRecordData {
   id: string;
+  circuit_id: string | null;
   circuit_or_equipment: string;
   test_type_id: string;
   custom_test_type_label: string | null;
@@ -42,6 +58,9 @@ export interface TestRecordData {
   instrument_used: string | null;
   tested_at: string;
   notes: string | null;
+  is_superseded: boolean;
+  supersedes_id: string | null;
+  amended_reason: string | null;
   test_types: { name: string } | null;
   profiles: { full_name: string | null; email: string | null } | null;
 }
@@ -75,6 +94,9 @@ export function ComplianceSection({
   jobComplianceStatus,
   testRecords,
   testTypes,
+  circuits,
+  currentUserId,
+  canAmend,
   workers,
   complianceDocuments,
   complianceTemplates,
@@ -86,6 +108,9 @@ export function ComplianceSection({
   jobComplianceStatus: JobComplianceStatusData | null;
   testRecords: TestRecordData[];
   testTypes: TestTypeOption[];
+  circuits: CircuitOption[];
+  currentUserId: string;
+  canAmend: boolean;
   workers: { id: string; full_name: string | null; email: string | null }[];
   complianceDocuments: ComplianceDocumentListItem[];
   complianceTemplates: ComplianceTemplateOption[];
@@ -95,6 +120,10 @@ export function ComplianceSection({
   const [addingTest, setAddingTest] = useState(false);
   const [selectedTestType, setSelectedTestType] = useState<string>(testTypes[0]?.id ?? "");
   const [addingDocument, setAddingDocument] = useState(false);
+  const [showSheet, setShowSheet] = useState(false);
+  const [amendingId, setAmendingId] = useState<string | null>(null);
+
+  const isLocked = jobComplianceStatus?.certificate_status === "Issued";
 
   function refresh() {
     router.refresh();
@@ -200,44 +229,101 @@ export function ComplianceSection({
       <section className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Test records</h2>
-          {!addingTest ? (
+          <div className="flex items-center gap-3">
+            {!addingTest ? (
+              <button
+                onClick={() => setAddingTest(true)}
+                className="flex items-center gap-1 text-xs font-semibold text-amber-600 hover:underline"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add test record
+              </button>
+            ) : null}
             <button
-              onClick={() => setAddingTest(true)}
-              className="flex items-center gap-1 text-xs font-semibold text-amber-600 hover:underline"
+              onClick={() => setShowSheet(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
             >
-              <Plus className="h-3.5 w-3.5" /> Add test record
+              <Grid3x3 className="h-3.5 w-3.5" /> Test sheet
             </button>
-          ) : null}
+          </div>
         </div>
+
+        {isLocked ? (
+          <p className="mb-3 flex items-center gap-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+            <Lock className="h-3.5 w-3.5 shrink-0" /> The certificate for this job has been issued
+            -- existing test records are locked. Use Amend to correct one.
+          </p>
+        ) : null}
 
         {testRecords.length === 0 && !addingTest ? (
           <p className="text-sm text-neutral-500">No test records for this job yet.</p>
         ) : (
           <ul className="mb-3 flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
-            {testRecords.map((record) => (
-              <li key={record.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                    {record.circuit_or_equipment}
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    {record.custom_test_type_label || record.test_types?.name}
-                    {record.measured_value != null ? ` · ${record.measured_value}${record.unit ?? ""}` : ""}
-                    {record.profiles ? ` · ${record.profiles.full_name || record.profiles.email}` : ""}
-                    {" · "}
-                    {formatDate(record.tested_at)}
-                  </p>
-                </div>
-                <TestResultBadge result={record.result} />
-                <button
-                  onClick={() => startTransition(() => deleteTestRecord(record.id, jobId).then(refresh))}
-                  className="text-neutral-400 hover:text-red-600"
-                  aria-label="Delete test record"
+            {testRecords.map((record) =>
+              amendingId === record.id ? (
+                <AmendForm
+                  key={record.id}
+                  record={record}
+                  jobId={jobId}
+                  onDone={() => {
+                    setAmendingId(null);
+                    refresh();
+                  }}
+                />
+              ) : (
+                <li
+                  key={record.id}
+                  className={clsx(
+                    "flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0",
+                    record.is_superseded && "opacity-50",
+                  )}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                      {record.circuit_or_equipment}
+                      {record.is_superseded ? (
+                        <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-neutral-800">
+                          Amended
+                        </span>
+                      ) : null}
+                      {record.supersedes_id ? (
+                        <span
+                          className="flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-500/10 dark:text-blue-400"
+                          title={record.amended_reason ?? undefined}
+                        >
+                          <History className="h-2.5 w-2.5" /> Amendment
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="truncate text-xs text-neutral-500">
+                      {record.custom_test_type_label || record.test_types?.name}
+                      {record.measured_value != null ? ` · ${record.measured_value}${record.unit ?? ""}` : ""}
+                      {record.profiles ? ` · ${record.profiles.full_name || record.profiles.email}` : ""}
+                      {" · "}
+                      {formatDate(record.tested_at)}
+                    </p>
+                  </div>
+                  <TestResultBadge result={record.result} />
+                  {isLocked && !record.is_superseded ? (
+                    canAmend ? (
+                      <button
+                        onClick={() => setAmendingId(record.id)}
+                        className="text-xs font-medium text-amber-600 hover:underline"
+                      >
+                        Amend
+                      </button>
+                    ) : null
+                  ) : !record.is_superseded ? (
+                    <button
+                      onClick={() => startTransition(() => deleteTestRecord(record.id, jobId).then(refresh))}
+                      className="text-neutral-400 hover:text-red-600"
+                      aria-label="Delete test record"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </li>
+              ),
+            )}
           </ul>
         )}
 
@@ -414,6 +500,104 @@ export function ComplianceSection({
           </form>
         ) : null}
       </section>
+
+      {showSheet ? (
+        <TestSheet
+          jobId={jobId}
+          circuits={circuits}
+          testTypes={testTypes}
+          workers={workers}
+          currentUserId={currentUserId}
+          onClose={() => setShowSheet(false)}
+          onSaved={() => {
+            setShowSheet(false);
+            refresh();
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function AmendForm({
+  record,
+  jobId,
+  onDone,
+}: {
+  record: TestRecordData;
+  jobId: string;
+  onDone: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <li className="flex flex-col gap-2 border-b border-neutral-100 py-2.5 last:border-b-0 dark:border-neutral-800">
+      <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+        Amend: {record.circuit_or_equipment} — {record.custom_test_type_label || record.test_types?.name}
+      </p>
+      <form
+        action={async (formData) => {
+          setPending(true);
+          setError(null);
+          try {
+            await amendTestRecord(record.id, jobId, formData);
+            onDone();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to amend.");
+            setPending(false);
+          }
+        }}
+        className="flex flex-col gap-2"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="number"
+            step="any"
+            name="measured_value"
+            placeholder="Corrected measured value"
+            defaultValue={record.measured_value ?? ""}
+            className={inputClass}
+          />
+          <select name="result" defaultValue={record.result} className={inputClass}>
+            {TEST_RESULTS.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
+        <textarea
+          name="notes"
+          placeholder="Notes (optional)"
+          rows={2}
+          defaultValue={record.notes ?? ""}
+          className={inputClass}
+        />
+        <input
+          name="amended_reason"
+          required
+          placeholder="Reason for this amendment (required, kept on the audit trail)"
+          className={inputClass}
+        />
+        {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
+        <div className="flex gap-1">
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
+          >
+            {pending ? "Saving..." : "Save amendment"}
+          </button>
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </li>
   );
 }

@@ -12,6 +12,7 @@ import type {
   JobComplianceStatusData,
   TestRecordData,
   TestTypeOption,
+  CircuitOption,
   ComplianceDocumentListItem,
   ComplianceTemplateOption,
 } from "./compliance-section";
@@ -145,7 +146,7 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
     supabase
       .from("test_records")
       .select(
-        "id, circuit_or_equipment, test_type_id, custom_test_type_label, measured_value, unit, result, instrument_used, tested_at, notes, test_types(name), profiles(full_name, email)",
+        "id, circuit_id, circuit_or_equipment, test_type_id, custom_test_type_label, measured_value, unit, result, instrument_used, tested_at, notes, is_superseded, supersedes_id, amended_reason, test_types(name), profiles(full_name, email)",
       )
       .eq("job_id", id)
       .order("tested_at", { ascending: false })
@@ -170,6 +171,19 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
 
   const job = jobRes.data;
   if (!job) notFound();
+
+  // Depends on job.property_id, only known once jobRes resolves -- the
+  // reusable circuit schedule the test sheet reads/writes, so a board
+  // entered on any past job at this property shows up here too.
+  const circuitsRes = await supabase
+    .from("property_circuits")
+    .select(
+      "id, switchboard_ref, circuit_number, description, protective_device_type, protective_device_rating, rcd_protected, rcd_ref",
+    )
+    .eq("property_id", job.property_id)
+    .eq("is_active", true)
+    .order("sort_order")
+    .returns<CircuitOption[]>();
 
   const visits = visitsRes.data;
   const workers = workersRes.data;
@@ -199,9 +213,13 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
 
   const jobComplianceStatus = complianceStatusRes.data;
   const testRecords = testRecordsRes.data ?? [];
+  const hasUnresolvedFailedTest = testRecords.some(
+    (record) => record.result === "Fail" && !record.is_superseded,
+  );
   const { testingCompleted, complianceComplete } = computeJobCompliance({
     requiresTesting: jobComplianceStatus?.requires_testing ?? false,
     hasTestRecords: testRecords.length > 0,
+    hasUnresolvedFailedTest,
     requiresCertificate: jobComplianceStatus?.requires_certificate ?? false,
     certificateStatus: jobComplianceStatus?.certificate_status ?? "Not Required",
     requiresNotice: jobComplianceStatus?.requires_notice ?? false,
@@ -247,6 +265,8 @@ export default async function JobDetailPage({ params }: PageProps<"/jobs/[id]">)
         jobComplianceStatus={jobComplianceStatus ?? null}
         testRecords={testRecords}
         testTypes={testTypesRes.data ?? []}
+        circuits={circuitsRes.data ?? []}
+        currentUserId={user!.id}
         complianceDocuments={complianceDocumentsRes.data ?? []}
         complianceTemplates={complianceTemplatesRes.data ?? []}
         canManageFinances={canManageFinances}

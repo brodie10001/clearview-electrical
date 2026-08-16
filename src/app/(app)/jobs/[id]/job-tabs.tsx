@@ -9,7 +9,15 @@ import { VisitsSection, type VisitData, type WorkerOption } from "./visits-secti
 import { VariationsSection, type VariationData } from "./variations-section";
 import { InvoicesSection, type InvoiceListItem, type TemplateOption, type TemplateStageOption } from "./invoices-section";
 import { BillingSummary } from "./billing-summary";
-import { ComplianceSection, type TestRecordData, type TestTypeOption, type ComplianceDocumentListItem, type ComplianceTemplateOption, type JobComplianceStatusData } from "./compliance-section";
+import {
+  ComplianceSection,
+  type TestRecordData,
+  type TestTypeOption,
+  type CircuitOption,
+  type ComplianceDocumentListItem,
+  type ComplianceTemplateOption,
+  type JobComplianceStatusData,
+} from "./compliance-section";
 import { DocumentsList } from "@/components/documents/documents-list";
 import { formatDate } from "@/lib/format";
 import { createQuote } from "@/app/(app)/quotes/actions";
@@ -57,6 +65,8 @@ export function JobTabs({
   jobComplianceStatus,
   testRecords,
   testTypes,
+  circuits,
+  currentUserId,
   complianceDocuments,
   complianceTemplates,
   canManageFinances,
@@ -78,6 +88,8 @@ export function JobTabs({
   jobComplianceStatus: JobComplianceStatusData | null;
   testRecords: TestRecordData[];
   testTypes: TestTypeOption[];
+  circuits: CircuitOption[];
+  currentUserId: string;
   complianceDocuments: ComplianceDocumentListItem[];
   complianceTemplates: ComplianceTemplateOption[];
   canManageFinances: boolean;
@@ -230,6 +242,9 @@ export function JobTabs({
           jobComplianceStatus={jobComplianceStatus}
           testRecords={testRecords}
           testTypes={testTypes}
+          circuits={circuits}
+          currentUserId={currentUserId}
+          canAmend={canManageFinances}
           workers={workers}
           complianceDocuments={complianceDocuments}
           complianceTemplates={complianceTemplates}
