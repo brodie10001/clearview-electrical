@@ -19,6 +19,7 @@ export async function signUp(_prevState: SignupState, formData: FormData): Promi
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirm_password") as string;
+  const agreedToTerms = formData.get("agreed_to_terms") === "on";
 
   if (!businessName) {
     return { error: "Business name is required.", sent: false, email: null };
@@ -35,6 +36,13 @@ export async function signUp(_prevState: SignupState, formData: FormData): Promi
   }
   if (password !== confirmPassword) {
     return { error: "Passwords don't match.", sent: false, email: null };
+  }
+  if (!agreedToTerms) {
+    return {
+      error: "You must agree to the Terms of Service and Privacy Policy to continue.",
+      sent: false,
+      email: null,
+    };
   }
 
   const origin = (await headers()).get("origin");
