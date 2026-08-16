@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/nav/sidebar";
 import { BottomNav } from "@/components/nav/bottom-nav";
 import { QuickActionButton } from "@/components/quick-action/quick-action-button";
 import { OfflinePhotoIndicator } from "@/components/offline-photo-indicator";
+import { OfflineTestSheetIndicator } from "@/components/offline-test-sheet-indicator";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -32,6 +33,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </Suspense>
       <QuickActionButton />
       <OfflinePhotoIndicator />
+      <OfflineTestSheetIndicator />
       <FeedbackButton />
     </div>
   );

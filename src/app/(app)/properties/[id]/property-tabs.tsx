@@ -31,12 +31,14 @@ import { DocumentsList } from "@/components/documents/documents-list";
 import { StatusToggle } from "./status-toggle";
 import { AccessForm } from "./access-form";
 import { ElectricalForm } from "./electrical-form";
+import { CircuitSchedule } from "./circuit-schedule";
 import { ContactsSection } from "./contacts-section";
 import { isJobOpen } from "@/lib/job-status";
 import type {
   PropertyDetailData,
   PropertyAccessData,
   PropertyElectricalData,
+  PropertyCircuitData,
   PropertyContactData,
   PropertyDocumentData,
   PropertyJobData,
@@ -119,6 +121,7 @@ export function PropertyTabs({
   propertyCreatedAtLabel,
   access,
   electrical,
+  circuits,
   contacts,
   documents,
   jobs,
@@ -129,6 +132,7 @@ export function PropertyTabs({
   propertyCreatedAtLabel: string;
   access: PropertyAccessData | null;
   electrical: PropertyElectricalData | null;
+  circuits: PropertyCircuitData[];
   contacts: PropertyContactData[];
   documents: PropertyDocumentData[];
   jobs: PropertyJobData[];
@@ -239,7 +243,10 @@ export function PropertyTabs({
         {tab === "access" ? <AccessForm propertyId={property.id} access={access} /> : null}
 
         {tab === "electrical" ? (
-          <ElectricalForm propertyId={property.id} electrical={electrical} />
+          <div className="flex flex-col gap-6">
+            <ElectricalForm propertyId={property.id} electrical={electrical} />
+            <CircuitSchedule propertyId={property.id} circuits={circuits} canEdit />
+          </div>
         ) : null}
 
         {tab === "contacts" ? (

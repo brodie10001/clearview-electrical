@@ -9,6 +9,7 @@ import { LabourRatesSection } from "./labour-rates-section";
 import { MaterialsCatalogueSection } from "./materials-catalogue-section";
 import { PaymentScheduleTemplatesSection } from "./payment-schedule-templates-section";
 import { TestTypesSection } from "./test-types-section";
+import { TestThresholdsForm } from "./test-thresholds-form";
 import { ComplianceDocumentTemplatesSection } from "./compliance-document-templates-section";
 import { SuppliersSection } from "./suppliers-section";
 import { PriceBookSection } from "./price-book-section";
@@ -163,6 +164,12 @@ export function BusinessSettingsTabs({
             <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">
               <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">Test types</h3>
               <TestTypesSection testTypes={testTypes} canEdit={canEdit} />
+            </div>
+            <div className="border-t border-neutral-200 pt-6 dark:border-neutral-800">
+              <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                Test sheet result thresholds
+              </h3>
+              <TestThresholdsForm settings={settings} canEdit={canEdit} />
             </div>
           </div>
         ) : null}

@@ -139,6 +139,87 @@ export async function upsertPropertyElectrical(propertyId: string, formData: For
   revalidatePath(`/properties/${propertyId}`);
 }
 
+export async function createPropertyCircuit(propertyId: string, formData: FormData) {
+  const switchboardRef = (formData.get("switchboard_ref") as string) || null;
+  const circuitNumber = formData.get("circuit_number") as string;
+  const description = formData.get("description") as string;
+  const protectiveDeviceType = (formData.get("protective_device_type") as string) || null;
+  const protectiveDeviceRating = (formData.get("protective_device_rating") as string) || null;
+  const rcdProtected = formData.get("rcd_protected") === "on";
+  const rcdRef = (formData.get("rcd_ref") as string) || null;
+  const cableSize = (formData.get("cable_size") as string) || null;
+
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("property_circuits")
+    .select("sort_order")
+    .eq("property_id", propertyId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sortOrder = (existing?.sort_order ?? -1) + 1;
+
+  const { error } = await supabase.from("property_circuits").insert({
+    property_id: propertyId,
+    switchboard_ref: switchboardRef,
+    circuit_number: circuitNumber,
+    description,
+    protective_device_type: protectiveDeviceType,
+    protective_device_rating: protectiveDeviceRating,
+    rcd_protected: rcdProtected,
+    rcd_ref: rcdRef,
+    cable_size: cableSize,
+    sort_order: sortOrder,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/properties/${propertyId}`);
+}
+
+export async function updatePropertyCircuit(circuitId: string, propertyId: string, formData: FormData) {
+  const switchboardRef = (formData.get("switchboard_ref") as string) || null;
+  const circuitNumber = formData.get("circuit_number") as string;
+  const description = formData.get("description") as string;
+  const protectiveDeviceType = (formData.get("protective_device_type") as string) || null;
+  const protectiveDeviceRating = (formData.get("protective_device_rating") as string) || null;
+  const rcdProtected = formData.get("rcd_protected") === "on";
+  const rcdRef = (formData.get("rcd_ref") as string) || null;
+  const cableSize = (formData.get("cable_size") as string) || null;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("property_circuits")
+    .update({
+      switchboard_ref: switchboardRef,
+      circuit_number: circuitNumber,
+      description,
+      protective_device_type: protectiveDeviceType,
+      protective_device_rating: protectiveDeviceRating,
+      rcd_protected: rcdProtected,
+      rcd_ref: rcdRef,
+      cable_size: cableSize,
+    })
+    .eq("id", circuitId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/properties/${propertyId}`);
+}
+
+// Archived, never deleted -- test_records.circuit_id references this table
+// with on delete restrict specifically so a circuit with historical test
+// data can never disappear out from under those records.
+export async function archivePropertyCircuit(circuitId: string, propertyId: string, isActive: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("property_circuits")
+    .update({ is_active: isActive })
+    .eq("id", circuitId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/properties/${propertyId}`);
+}
+
 export async function addPropertyContact(propertyId: string, formData: FormData) {
   const contactId = formData.get("contact_id") as string;
   const role = formData.get("role") as PropertyContactRole;

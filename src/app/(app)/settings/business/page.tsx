@@ -35,6 +35,10 @@ export interface BusinessSettings {
   bank_account_number: string | null;
   payment_instructions: string | null;
   default_quote_validity_days: number | null;
+  insulation_resistance_min_mohm: number | null;
+  rcd_trip_time_max_ms: number | null;
+  rcd_trip_current_max_ma: number | null;
+  test_thresholds_confirmed: boolean;
 }
 
 export interface LabourRateType {

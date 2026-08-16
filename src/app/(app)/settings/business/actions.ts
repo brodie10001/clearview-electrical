@@ -816,3 +816,37 @@ export async function updateInvoiceNumbering(
   revalidatePath("/settings/business");
   return { error: null };
 }
+
+// Test sheet pass/fail suggestion thresholds. These stay provisional
+// (test_thresholds_confirmed defaults false) until explicitly confirmed
+// here -- the test sheet renders no suggested pass/fail at all while
+// unconfirmed, regardless of whatever numbers are stored. A wrong
+// confirmed threshold that silently passes a failed circuit would be the
+// worst bug this app could ship, so confirming is a deliberate,
+// explicit action, never a side effect of editing a number.
+export async function updateTestThresholds(formData: FormData) {
+  const insulationResistanceMinMohm = formData.get("insulation_resistance_min_mohm")
+    ? Number(formData.get("insulation_resistance_min_mohm"))
+    : null;
+  const rcdTripTimeMaxMs = formData.get("rcd_trip_time_max_ms")
+    ? Number(formData.get("rcd_trip_time_max_ms"))
+    : null;
+  const rcdTripCurrentMaxMa = formData.get("rcd_trip_current_max_ma")
+    ? Number(formData.get("rcd_trip_current_max_ma"))
+    : null;
+  const confirmed = formData.get("test_thresholds_confirmed") === "on";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("business_settings")
+    .update({
+      insulation_resistance_min_mohm: insulationResistanceMinMohm,
+      rcd_trip_time_max_ms: rcdTripTimeMaxMs,
+      rcd_trip_current_max_ma: rcdTripCurrentMaxMa,
+      test_thresholds_confirmed: confirmed,
+    })
+    .not("business_id", "is", null);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/settings/business");
+}
