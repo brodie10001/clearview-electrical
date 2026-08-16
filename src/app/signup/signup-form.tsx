@@ -187,11 +187,21 @@ export function SignupForm() {
               />
               <span>
                 I agree to Ralden&apos;s{" "}
-                <Link href="/terms" className="underline hover:text-amber-600">
+                <Link
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-amber-600"
+                >
                   Terms of Service
                 </Link>{" "}
                 and{" "}
-                <Link href="/privacy" className="underline hover:text-amber-600">
+                <Link
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-amber-600"
+                >
                   Privacy Policy
                 </Link>
                 .
