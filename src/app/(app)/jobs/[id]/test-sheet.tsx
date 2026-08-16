@@ -298,11 +298,11 @@ export function TestSheet({
   if (circuits.length === 0) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-4 dark:bg-neutral-900">
-          <h2 className="mb-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+        <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 dark:bg-neutral-900">
+          <h2 className="mb-1 text-base font-semibold text-neutral-900 dark:text-neutral-50">
             No circuits yet
           </h2>
-          <p className="mb-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
             This property has no circuit schedule yet. Add the first circuit here to start the
             test sheet -- it&apos;s saved to the property, so it&apos;s reused on every future job
             here too.
@@ -311,13 +311,8 @@ export function TestSheet({
             pending={addingCircuitPending}
             error={addCircuitError}
             onSubmit={handleAddCircuit}
+            onCancel={onClose}
           />
-          <button
-            onClick={onClose}
-            className="mt-3 text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-          >
-            Cancel
-          </button>
         </div>
       </div>
     );
@@ -642,40 +637,56 @@ function AddCircuitForm({
       action={async (formData) => {
         await onSubmit(formData);
       }}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-3"
     >
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <input name="switchboard_ref" placeholder="Switchboard (optional)" className={inputClass} />
-        <input name="circuit_number" required placeholder="Circuit no." className={inputClass} />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-500">Circuit no.</label>
+          <input name="circuit_number" required className={inputClass} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-500">Switchboard</label>
+          <input name="switchboard_ref" placeholder="Optional" className={inputClass} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-neutral-500">Description</label>
+        <input name="description" required placeholder="e.g. Kitchen GPOs" className={inputClass} />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-neutral-500">Device rating</label>
+        <input name="protective_device_rating" placeholder="Optional" className={inputClass} />
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
         <input
-          name="description"
-          required
-          placeholder="Description, e.g. Kitchen GPOs"
-          className={clsx(inputClass, "col-span-2")}
+          name="rcd_protected"
+          type="checkbox"
+          checked={rcdProtected}
+          onChange={(e) => setRcdProtected(e.target.checked)}
+          className="h-4 w-4 rounded border-neutral-300 text-amber-600 focus:ring-amber-500 dark:border-neutral-700"
         />
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <input name="protective_device_rating" placeholder="Device rating (optional)" className={inputClass} />
-        <label className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
-          <input
-            name="rcd_protected"
-            type="checkbox"
-            checked={rcdProtected}
-            onChange={(e) => setRcdProtected(e.target.checked)}
-            className="h-3.5 w-3.5"
-          />
-          RCD protected
-        </label>
-        {rcdProtected ? (
-          <input name="rcd_ref" placeholder="RCD ref, e.g. RCD1" className={clsx(inputClass, "w-28")} />
-        ) : null}
-      </div>
+        RCD protected
+      </label>
+      {rcdProtected ? (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-500">
+            RCD reference{" "}
+            <span className="text-neutral-400">(same value on every circuit sharing one RCD)</span>
+          </label>
+          <input name="rcd_ref" placeholder="e.g. RCD1" className={inputClass} />
+        </div>
+      ) : null}
+
       {error ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p> : null}
-      <div className="flex gap-1">
+
+      <div className="flex gap-2 pt-1">
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
+          className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
         >
           {pending ? "Adding..." : "Add circuit"}
         </button>
@@ -683,7 +694,7 @@ function AddCircuitForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
             Cancel
           </button>
