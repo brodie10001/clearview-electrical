@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { MessageSquarePlus } from "lucide-react";
 import { FeedbackDialog } from "./feedback-dialog";
 import { Toast } from "@/components/ui/toast";
@@ -12,6 +13,15 @@ import { Toast } from "@/components/ui/toast";
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const pathname = usePathname();
+
+  // The dashboard home page renders its own header with an equivalent
+  // help/feedback button next to the profile menu -- both pinned top-right,
+  // so this fixed-position button visually overlapped the profile menu on
+  // narrow (mobile) widths there. Hide it on that one route rather than
+  // repositioning it, since the header's own button already covers it.
+  const isDashboardHome = pathname === "/";
+  if (isDashboardHome) return null;
 
   return (
     <>
